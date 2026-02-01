@@ -6,6 +6,10 @@
 
 __attribute__((unused)) void main(void) {
     serial_println("Hello world!");
+
+    // try causing an interrupt
+    __asm__ volatile ("int $0x03");
+
     serial_println("How are you btw?");
 
     // Note: we assume the framebuffer model is RGB with 32-bit pixels.

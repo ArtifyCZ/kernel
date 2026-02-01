@@ -82,7 +82,7 @@ __attribute__((used, section(".limine_requests_end")))
 static volatile uint64_t limine_requests_end_marker[] = LIMINE_REQUESTS_END_MARKER;
 
 // Halt and catch fire function.
-static void hcf(void) {
+_Noreturn void hcf(void) {
     for (;;) {
 #if defined (__x86_64__)
         asm ("hlt");
@@ -114,9 +114,20 @@ __attribute__((used)) void bootEntrypoint(void) {
     // Fetch the first framebuffer.
     framebuffer = framebuffer_request.response->framebuffers[0];
 
-    idt_init();
+    __asm__ volatile ("cli"); // clear the interrupt flag
 
     serial_init();
+
+    idt_init();
+
+    serial_println(module_request.response == NULL ? "No modules loaded." : "Modules loaded:");
+
+    for (size_t i = 0; module_request.response != NULL && i < module_request.response->module_count; i++) {
+        struct limine_file *file = module_request.response->modules[i];
+        serial_print("Module ");
+        serial_print(": ");
+        serial_println(file->path);
+    }
 
     main();
 

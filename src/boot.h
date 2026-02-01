@@ -9,6 +9,9 @@
 
 extern struct limine_framebuffer *framebuffer;
 
+// Halt and catch fire function.
+_Noreturn void hcf(void);
+
 // The following will be our kernel's entry point.
 // If renaming bootEntrypoint() to something else, make sure to change the
 // linker script accordingly.
