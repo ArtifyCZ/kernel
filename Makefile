@@ -9,9 +9,13 @@ $(BUILD):
 
 KERNEL_OBJS=
 
+KERNEL_OBJS += $(BUILD)/cga_graphics.o
+KERNEL_OBJS += $(BUILD)/cpuid.o
+KERNEL_OBJS += $(BUILD)/cpuid_supported.o
+KERNEL_OBJS += $(BUILD)/kernel.o
 KERNEL_OBJS += $(BUILD)/multiboot_header.o
 KERNEL_OBJS += $(BUILD)/multiboot_entry.o
-KERNEL_OBJS += $(BUILD)/kernel.o
+KERNEL_OBJS += $(BUILD)/stack_smashing_protector.o
 
 
 $(BUILD)/%.o: %.asm $(BUILD)
@@ -44,7 +48,7 @@ qemu: $(BUILD)/kernel.elf
 
 ## Run kernel iso in QEMU (GRUB included)
 qemu-iso: $(BUILD)/kernel.iso
-	qemu-system-i386 -cdrom $(BUILD)/kernel.iso
+	qemu-system-x86_64 -cdrom $(BUILD)/kernel.iso
 
 
 ## Removes all local artifacts

@@ -3,35 +3,47 @@
 #include <stdint.h>
 
 #include "multiboot.h"
+#include "cga_graphics.h"
+#include "cpuid.h"
 
-// The CGA graphics device is memory-mapped. We're not going to go into a ton 
-// of detail here, but the basic idea is:
+bool machine_supports_64bit(void) {
+    uint32_t cpuidResults[4];
 
-// | 4 bit background color | 4 bit foreground color | 8 bit ascii character |
-// 24 rows of text, with 80 columns per row
-volatile uint16_t* cga_memory = (volatile uint16_t*)0xb8000;
-const uint32_t cga_column_count = 80;
-const uint32_t cga_row_count = 24;
-const uint16_t cga_white_on_black_color_code = (15 << 8);
+    cpuid(CPUIDExtendedFunctionSupport, 0, cpuidResults);
 
-void cga_clear_screen(void) {
-    // would be nice to use memset here, but remember, there is no libc available
-    for (uint32_t i = 0; i < cga_row_count * cga_column_count; ++i) {
-        cga_memory[i] = 0;
+    if (cpuidResults[CPUID_EAX] < CPUIDExtendedProcessorInfo) {
+        return false;
     }
-}
 
-void cga_print_string(const char* string) {
-    for (uint32_t i = 0; *string != '\0'; ++string, ++i) {
-        cga_memory[i] = *string | cga_white_on_black_color_code;
-    }
+    cpuid(CPUIDExtendedProcessorInfo, 0, cpuidResults);
+
+    return cpuidResults[CPUID_EDX] & (1 << 29);
 }
 
 void kernel_main(multiboot_info_t* multiboot_info) {
-#pragma unused(multiboot_info)
     cga_clear_screen();
 
-    cga_print_string("Hello kernel world!");
+    cga_print_string("i'm a kernel", 0, 0);
+
+    if (multiboot_info->flags & MULTIBOOT_INFO_CMDLINE) {
+        cga_print_string("cmdline: ", 0, 1);
+        cga_print_string((const char*)multiboot_info->cmdline, 9, 1);
+    }
+
+    if (multiboot_info->flags & MULTIBOOT_INFO_MODS && multiboot_info->mods_count > 0) {
+        const multiboot_module_t* module = (const multiboot_module_t*)multiboot_info->mods_addr;
+
+        cga_print_string("module: ", 0, 2);
+        cga_print_string((const char*)module->mod_start, 8, 2);
+    }
+
+    if (!cpuid_supported()) {
+        cga_print_string("cpuid unsupported", 0, 3);
+        return;
+    }
+
+    cga_print_string("64-bit: ", 0, 3);
+    cga_print_string(machine_supports_64bit() ? "supported" : "unsupported", 8, 3);
 
     // returning here will result in our 'hang' routine executing
 }
