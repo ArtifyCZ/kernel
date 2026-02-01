@@ -48,6 +48,15 @@ CFLAGS += -Wall \
 	-fdata-sections
 
 
+LDFLAGS :=
+LDFLAGS += -m elf_x86_64
+LDFLAGS += -nostdlib \
+	-static \
+	-z max-page-size=0x1000 \
+	--gc-sections
+LDFLAGS += -T kernel.ld
+
+
 $(BUILD)/%.o: %.asm $(BUILD)
 	nasm -felf64 $< -o $@
 
@@ -56,7 +65,7 @@ $(BUILD)/%.o: %.c $(BUILD)
 
 
 $(BUILD)/kernel.elf: $(DEPS) $(KERNEL_OBJS) $(BUILD)
-	ld -m elf_x86_64 -T kernel.ld -o $(BUILD)/kernel.elf $(KERNEL_OBJS)
+	ld $(LDFLAGS) -o $(BUILD)/kernel.elf $(KERNEL_OBJS)
 
 
 $(BUILD)/kernel.iso: $(BUILD)/kernel.elf $(BUILD)/limine/limine $(BUILD)
