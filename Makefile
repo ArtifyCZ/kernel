@@ -29,10 +29,23 @@ KERNEL_OBJS += $(BUILD)/std_memory.o
 INCLUDE_HEADERS=
 
 INCLUDE_HEADERS += $(DEPS)/limine-protocol/include
+INCLUDE_HEADERS += $(DEPS)/freestnd-c-hdrs/include
+
 
 CFLAGS :=
 CFLAGS += $(addprefix -I ,$(INCLUDE_HEADERS))
-CFLAGS += -target x86_64-linux-gnu -ffreestanding -Wall -Wextra
+CFLAGS += -g -O2 -pipe -target x86_64-linux-gnu
+CFLAGS += -Wall \
+	-Wextra \
+	-std=gnu11 \
+	-nostdinc \
+	-ffreestanding \
+	-fno-stack-protector \
+	-fno-stack-check \
+	-fno-lto \
+	-fno-PIC \
+	-ffunction-sections \
+	-fdata-sections
 
 
 $(BUILD)/%.o: %.asm $(BUILD)
@@ -42,7 +55,7 @@ $(BUILD)/%.o: %.c $(BUILD)
 	clang $(CFLAGS) -c $< -o $@
 
 
-$(BUILD)/kernel.elf: $(DEPS)/limine-protocol $(KERNEL_OBJS) $(BUILD)
+$(BUILD)/kernel.elf: $(DEPS) $(KERNEL_OBJS) $(BUILD)
 	ld -m elf_x86_64 -T kernel.ld -o $(BUILD)/kernel.elf $(KERNEL_OBJS)
 
 
@@ -67,11 +80,14 @@ $(BUILD)/kernel.iso: $(BUILD)/kernel.elf $(BUILD)/limine/limine $(BUILD)
 # xorriso -outdev $(BUILD)/kernel.iso -blank as_needed -map $(BUILD)/isofiles / -boot_image grub bin_path=/boot/grub/stage1
 
 
+$(DEPS): $(DEPS)/limine-protocol $(DEPS)/freestnd-c-hdrs
+
+
 $(DEPS)/limine-protocol: repo = https://codeberg.org/Limine/limine-protocol.git
 $(DEPS)/limine-protocol: commit = 42e836e30242c2c14f889fd76c6f9a57b0c18ec2
-#	rm -rf $(DEPS)/limine-protocol
-#	git clone https://codeberg.org/Limine/limine-protocol.git $(DEPS)/limine-protocol
-#	git -C $(DEPS)/limine-protocol -c advice.detachedHead=false checkout 42e836e30242c2c14f889fd76c6f9a57b0c18ec2
+
+$(DEPS)/freestnd-c-hdrs: repo = https://codeberg.org/OSDev/freestnd-c-hdrs-0bsd.git
+$(DEPS)/freestnd-c-hdrs: commit = 097259a899d30f0a4b7a694de2de5fdda942e923
 
 
 $(DEPS)/%:
