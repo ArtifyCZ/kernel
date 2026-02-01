@@ -2,6 +2,13 @@ default: help
 
 BUILD=build
 
+# Toolchain for building the 'limine' executable for the host.
+HOST_CC := cc
+HOST_CFLAGS := -g -O2 -pipe
+HOST_CPPFLAGS :=
+HOST_LDFLAGS :=
+HOST_LIBS :=
+
 
 $(BUILD):
 	mkdir -p $(BUILD)
@@ -9,45 +16,55 @@ $(BUILD):
 
 KERNEL_OBJS=
 
-KERNEL_OBJS += $(BUILD)/cga_graphics.o
-KERNEL_OBJS += $(BUILD)/cpuid.o
-KERNEL_OBJS += $(BUILD)/cpuid_supported.o
 KERNEL_OBJS += $(BUILD)/kernel.o
-KERNEL_OBJS += $(BUILD)/multiboot_header.o
-KERNEL_OBJS += $(BUILD)/multiboot_entry.o
 KERNEL_OBJS += $(BUILD)/stack_smashing_protector.o
 
 
 $(BUILD)/%.o: %.asm $(BUILD)
-	nasm -felf32 $< -o $@
+	nasm -felf64 $< -o $@
 
 $(BUILD)/%.o: %.c $(BUILD)
-	clang -target i386-linux-gnu -ffreestanding -Wall -Wextra -c $< -o $@
+	clang -target x86_64-linux-gnu -ffreestanding -Wall -Wextra -c $< -o $@
 
 
 $(BUILD)/kernel.elf: $(KERNEL_OBJS) $(BUILD)
-	ld -m elf_i386 -T kernel.ld -o $(BUILD)/kernel.elf $(KERNEL_OBJS)
+	ld -m elf_x86_64 -T kernel.ld -o $(BUILD)/kernel.elf $(KERNEL_OBJS)
 
 
-$(BUILD)/kernel.iso: $(BUILD)/kernel.elf $(BUILD)
-	# pack iso file
-	mkdir -p $(BUILD)/isofiles/boot/grub
-	cp bootloader/grub-0.97-binaries/iso9660_stage1_5 $(BUILD)/isofiles/boot/grub/stage1
-	cp bootloader/grub-0.97-binaries/stage2 $(BUILD)/isofiles/boot/grub/stage2
+$(BUILD)/kernel.iso: $(BUILD)/kernel.elf $(BUILD)/limine/limine $(BUILD)
+	mkdir -p $(BUILD)/isofiles/boot/limine/
+	cp -v limine.conf $(BUILD)/isofiles/boot/limine/
+	mkdir -p $(BUILD)/isofiles/EFI/BOOT
+
 	cp $(BUILD)/kernel.elf $(BUILD)/isofiles/boot/kernel.elf
-	cp bootloader/menu.lst $(BUILD)/isofiles/boot/grub/
-	cp bootloader/data_file $(BUILD)/isofiles/boot/
-	xorriso -outdev $(BUILD)/kernel.iso -blank as_needed -map $(BUILD)/isofiles / -boot_image grub bin_path=/boot/grub/stage1
+
+	cp -v $(BUILD)/limine/limine-bios.sys $(BUILD)/limine/limine-bios-cd.bin $(BUILD)/limine/limine-uefi-cd.bin $(BUILD)/isofiles/boot/limine/
+	cp -v $(BUILD)/limine/BOOTX64.EFI $(BUILD)/isofiles/EFI/BOOT/
+	cp -v $(BUILD)/limine/BOOTIA32.EFI $(BUILD)/isofiles/EFI/BOOT/
+	xorriso -as mkisofs -R -r -J -b boot/limine/limine-bios-cd.bin \
+		-no-emul-boot -boot-load-size 4 -boot-info-table -hfsplus \
+		-apm-block-size 2048 --efi-boot boot/limine/limine-uefi-cd.bin \
+		-efi-boot-part --efi-boot-image --protective-msdos-label \
+		$(BUILD)/isofiles -o $(BUILD)/kernel.iso
+	$(BUILD)/limine/limine bios-install $(BUILD)/kernel.iso
+	rm -rf $(BUILD)/isofiles
+
+# xorriso -outdev $(BUILD)/kernel.iso -blank as_needed -map $(BUILD)/isofiles / -boot_image grub bin_path=/boot/grub/stage1
 
 
-.PHONY: qemu qemu-iso
-## Run kernel directly in QEMU (no bootloader included)
-qemu: $(BUILD)/kernel.elf
-	qemu-system-i386 -kernel $(BUILD)/kernel.elf
-	#qemu-system-i386 -boot d -cdrom $(BUILD)/kernel.iso
+$(BUILD)/limine/limine:
+	rm -rf $(BUILD)/limine
+	git clone https://codeberg.org/Limine/Limine.git $(BUILD)/limine --branch=v10.x-binary --depth=1
+	$(MAKE) -C $(BUILD)/limine \
+		CC="$(HOST_CC)" \
+		CFLAGS="$(HOST_CFLAGS)" \
+		CPPFLAGS="$(HOST_CPPFLAGS)" \
+		LDFLAGS="$(HOST_LDFLAGS)" \
+		LIBS="$(HOST_LIBS)"
 
-## Run kernel iso in QEMU (GRUB included)
-qemu-iso: $(BUILD)/kernel.iso
+
+.PHONY: qemu
+qemu: $(BUILD)/kernel.iso
 	qemu-system-x86_64 -cdrom $(BUILD)/kernel.iso
 
 
