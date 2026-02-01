@@ -18,12 +18,17 @@ $(BUILD):
 all: $(BUILD)/kernel.iso
 
 
-KERNEL_OBJS=
+KERNEL_SRC_FILES :=
 
-KERNEL_OBJS += $(BUILD)/kernel.o
-KERNEL_OBJS += $(BUILD)/cga_graphics.o
-KERNEL_OBJS += $(BUILD)/stack_smashing_protector.o
-KERNEL_OBJS += $(BUILD)/std_memory.o
+KERNEL_SRC_FILES += $(wildcard *.c)
+
+KERNEL_NASM_FILES :=
+
+KERNEL_NASM_FILES += $(wildcard *.asm)
+
+KERNEL_OBJS=
+KERNEL_OBJS += $(patsubst %.c,$(BUILD)/%.o,$(KERNEL_SRC_FILES))
+KERNEL_OBJS += $(patsubst %.asm,$(BUILD)/%.o,$(KERNEL_NASM_FILES))
 
 
 INCLUDE_HEADERS=
@@ -34,7 +39,7 @@ INCLUDE_HEADERS += $(DEPS)/freestnd-c-hdrs/include
 
 CFLAGS :=
 CFLAGS += $(addprefix -I ,$(INCLUDE_HEADERS))
-CFLAGS += -g -O2 -pipe -target x86_64-linux-gnu
+CFLAGS += -g -O0 -pipe -target x86_64-linux-gnu
 CFLAGS += -Wall \
 	-Wextra \
 	-std=gnu11 \
@@ -115,9 +120,12 @@ $(BUILD)/limine/limine:
 		LIBS="$(HOST_LIBS)"
 
 
-.PHONY: qemu
+.PHONY: qemu qemu-debug
 qemu: $(BUILD)/kernel.iso
-	qemu-system-x86_64 -cdrom $(BUILD)/kernel.iso
+	qemu-system-x86_64 -serial stdio -cdrom $(BUILD)/kernel.iso
+
+qemu-debug: $(BUILD)/kernel.iso
+	qemu-system-x86_64 -serial stdio -s -S -cdrom $(BUILD)/kernel.iso
 
 
 ## Removes all local artifacts
