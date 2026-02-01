@@ -1,6 +1,7 @@
 default: help
 
 BUILD=build
+DEPS=dependencies
 
 # Toolchain for building the 'limine' executable for the host.
 HOST_CC := clang
@@ -20,17 +21,28 @@ all: $(BUILD)/kernel.iso
 KERNEL_OBJS=
 
 KERNEL_OBJS += $(BUILD)/kernel.o
+KERNEL_OBJS += $(BUILD)/cga_graphics.o
 KERNEL_OBJS += $(BUILD)/stack_smashing_protector.o
+KERNEL_OBJS += $(BUILD)/std_memory.o
+
+
+INCLUDE_HEADERS=
+
+INCLUDE_HEADERS += $(DEPS)/limine-protocol/include
+
+CFLAGS :=
+CFLAGS += $(addprefix -I ,$(INCLUDE_HEADERS))
+CFLAGS += -target x86_64-linux-gnu -ffreestanding -Wall -Wextra
 
 
 $(BUILD)/%.o: %.asm $(BUILD)
 	nasm -felf64 $< -o $@
 
 $(BUILD)/%.o: %.c $(BUILD)
-	clang -target x86_64-linux-gnu -ffreestanding -Wall -Wextra -c $< -o $@
+	clang $(CFLAGS) -c $< -o $@
 
 
-$(BUILD)/kernel.elf: $(KERNEL_OBJS) $(BUILD)
+$(BUILD)/kernel.elf: $(DEPS)/limine-protocol $(KERNEL_OBJS) $(BUILD)
 	ld -m elf_x86_64 -T kernel.ld -o $(BUILD)/kernel.elf $(KERNEL_OBJS)
 
 
@@ -55,6 +67,18 @@ $(BUILD)/kernel.iso: $(BUILD)/kernel.elf $(BUILD)/limine/limine $(BUILD)
 # xorriso -outdev $(BUILD)/kernel.iso -blank as_needed -map $(BUILD)/isofiles / -boot_image grub bin_path=/boot/grub/stage1
 
 
+$(DEPS)/limine-protocol: repo = https://codeberg.org/Limine/limine-protocol.git
+$(DEPS)/limine-protocol: commit = 42e836e30242c2c14f889fd76c6f9a57b0c18ec2
+#	rm -rf $(DEPS)/limine-protocol
+#	git clone https://codeberg.org/Limine/limine-protocol.git $(DEPS)/limine-protocol
+#	git -C $(DEPS)/limine-protocol -c advice.detachedHead=false checkout 42e836e30242c2c14f889fd76c6f9a57b0c18ec2
+
+
+$(DEPS)/%:
+	rm -rf $@
+	git clone $(repo) $@
+	git -C $@ -c advice.detachedHead=false checkout $(commit)
+
 $(BUILD)/limine/limine:
 	rm -rf $(BUILD)/limine
 	git clone https://codeberg.org/Limine/Limine.git $(BUILD)/limine --branch=v10.x-binary --depth=1
@@ -73,7 +97,8 @@ qemu: $(BUILD)/kernel.iso
 
 ## Removes all local artifacts
 clean:
-	rm -rf build/
+	rm -rf $(BUILD)/
+	rm -rf $(DEPS)/
 
 .PHONY: help
 ## This help screen
