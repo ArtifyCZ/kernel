@@ -99,7 +99,7 @@ struct limine_framebuffer *framebuffer;
 // The following will be our kernel's entry point.
 // If renaming kmain() to something else, make sure to change the
 // linker script accordingly.
-__attribute__((unused)) void bootEntrypoint(void) {
+__attribute__((used)) void bootEntrypoint(void) {
     // Ensure the bootloader actually understands our base revision (see spec).
     if (LIMINE_BASE_REVISION_SUPPORTED(limine_base_revision) == false) {
         hcf();

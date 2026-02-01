@@ -20,15 +20,15 @@ all: $(BUILD)/kernel.iso
 
 KERNEL_SRC_FILES :=
 
-KERNEL_SRC_FILES += $(wildcard *.c)
+KERNEL_SRC_FILES += $(wildcard src/*.c)
 
 KERNEL_NASM_FILES :=
 
-KERNEL_NASM_FILES += $(wildcard *.asm)
+KERNEL_NASM_FILES += $(wildcard src/*.asm)
 
 KERNEL_OBJS=
-KERNEL_OBJS += $(patsubst %.c,$(BUILD)/%.o,$(KERNEL_SRC_FILES))
-KERNEL_OBJS += $(patsubst %.asm,$(BUILD)/%.o,$(KERNEL_NASM_FILES))
+KERNEL_OBJS += $(patsubst src/%.c,$(BUILD)/%.o,$(KERNEL_SRC_FILES))
+KERNEL_OBJS += $(patsubst src/%.asm,$(BUILD)/%.o,$(KERNEL_NASM_FILES))
 
 
 INCLUDE_HEADERS=
@@ -38,7 +38,7 @@ INCLUDE_HEADERS += $(DEPS)/freestnd-c-hdrs/include
 
 
 CFLAGS :=
-CFLAGS += $(addprefix -I ,$(INCLUDE_HEADERS))
+CFLAGS += $(addprefix -iframework ,$(INCLUDE_HEADERS))
 CFLAGS += -g -O0 -pipe -target x86_64-linux-gnu
 CFLAGS += -Wall \
 	-Wextra \

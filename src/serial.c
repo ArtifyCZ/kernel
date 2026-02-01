@@ -3,13 +3,12 @@
 //
 
 #include "serial.h"
-#include "stdint.h"
-#include "stddef.h"
+#include <stdint.h>
+#include <stddef.h>
 
 #define PORT 0x3f8
 
-static inline void outb(uint16_t port, uint8_t val)
-{
+static inline void outb(uint16_t port, uint8_t val) {
     __asm__ volatile ( "outb %b0, %w1" : : "a"(val), "Nd"(port) : "memory");
     /* There's an outb %al, $imm8 encoding, for compile-time constant port numbers that fit in 8b. (N constraint).
      * Wider immediate constants would be truncated at assemble-time (e.g. "i" constraint).
@@ -17,8 +16,7 @@ static inline void outb(uint16_t port, uint8_t val)
      * %1 expands to %dx because  port  is a uint16_t.  %w1 could be used if we had the port number a wider C type */
 }
 
-static inline uint8_t inb(uint16_t port)
-{
+static inline uint8_t inb(uint16_t port) {
     uint8_t ret;
     __asm__ volatile ( "inb %w1, %b0"
             : "=a"(ret)
@@ -39,7 +37,7 @@ int serial_init() {
     outb(PORT + 0, 0xAE);    // Test serial chip (send byte 0xAE and check if serial returns same byte)
 
     // Check if serial is faulty (i.e: not same byte as sent)
-    if(inb(PORT + 0) != 0xAE) {
+    if (inb(PORT + 0) != 0xAE) {
         return 1;
     }
 
@@ -66,7 +64,7 @@ static int is_transmit_empty() {
 static void write_serial(char a) {
     while (is_transmit_empty() == 0);
 
-    outb(PORT,a);
+    outb(PORT, a);
 }
 
 void serial_print(const char *message) {
