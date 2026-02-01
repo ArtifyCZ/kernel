@@ -1,30 +1,69 @@
-grub-iso:
-	mkdir -p build
-	dd if=bootloader/grub-0.97-binaries/stage1 of=build/grub-floppy.img bs=512 count=1
-	dd if=bootloader/grub-0.97-binaries/stage2 of=build/grub-floppy.img bs=512 seek=1
+default: help
 
-kernel.elf:
-	# compile kernel objects
-	nasm -felf32 kernel-32-bit/multiboot_header.asm -o build/multiboot_header.o
-	nasm -felf32 kernel-32-bit/multiboot_entry.asm -o build/multiboot_entry.o
-	clang -target i386-linux-gnu -ffreestanding -Wall -Wextra -c kernel-32-bit/kernel.c -o build/basic_kernel.o
-	# link the kernel together
-	#i386-unknown-linux-gnu-ld -T 32-bit-kernel/kernel.ld -o build/kernel.elf build/multiboot_header.o build/multiboot_entry.o build/basic_kernel.o
-	ld -m elf_i386 -T kernel-32-bit/kernel.ld -o build/kernel.elf build/multiboot_header.o build/multiboot_entry.o build/basic_kernel.o
+BUILD=build
 
-kernel.iso: kernel.elf
+
+$(BUILD):
+	mkdir -p $(BUILD)
+
+
+KERNEL_OBJS=
+
+KERNEL_OBJS += $(BUILD)/multiboot_header.o
+KERNEL_OBJS += $(BUILD)/multiboot_entry.o
+KERNEL_OBJS += $(BUILD)/kernel.o
+
+
+$(BUILD)/%.o: %.asm $(BUILD)
+	nasm -felf32 $< -o $@
+
+$(BUILD)/%.o: %.c $(BUILD)
+	clang -target i386-linux-gnu -ffreestanding -Wall -Wextra -c $< -o $@
+
+
+$(BUILD)/kernel.elf: $(KERNEL_OBJS) $(BUILD)
+	ld -m elf_i386 -T kernel.ld -o $(BUILD)/kernel.elf $(KERNEL_OBJS)
+
+
+$(BUILD)/kernel.iso: $(BUILD)/kernel.elf $(BUILD)
 	# pack iso file
-	mkdir -p build/isofiles/boot/grub
-	cp bootloader/grub-0.97-binaries/iso9660_stage1_5 build/isofiles/boot/grub/stage1
-	cp bootloader/grub-0.97-binaries/stage2 build/isofiles/boot/grub/stage2
-	cp build/kernel.elf build/isofiles/boot/kernel.elf
-	cp bootloader/menu.lst build/isofiles/boot/grub/
-	cp bootloader/data_file build/isofiles/boot/
-	xorriso -outdev build/kernel.iso -blank as_needed -map build/isofiles / -boot_image grub bin_path=/boot/grub/stage1
+	mkdir -p $(BUILD)/isofiles/boot/grub
+	cp bootloader/grub-0.97-binaries/iso9660_stage1_5 $(BUILD)/isofiles/boot/grub/stage1
+	cp bootloader/grub-0.97-binaries/stage2 $(BUILD)/isofiles/boot/grub/stage2
+	cp $(BUILD)/kernel.elf $(BUILD)/isofiles/boot/kernel.elf
+	cp bootloader/menu.lst $(BUILD)/isofiles/boot/grub/
+	cp bootloader/data_file $(BUILD)/isofiles/boot/
+	xorriso -outdev $(BUILD)/kernel.iso -blank as_needed -map $(BUILD)/isofiles / -boot_image grub bin_path=/boot/grub/stage1
 
-qemu: kernel.elf
-	qemu-system-i386 -kernel build/kernel.elf
-	#qemu-system-i386 -boot d -cdrom build/kernel.iso
 
-grub-qemu: kernel.iso
-	qemu-system-i386 -cdrom build/kernel.iso
+.PHONY: qemu qemu-iso
+## Run kernel directly in QEMU (no bootloader included)
+qemu: $(BUILD)/kernel.elf
+	qemu-system-i386 -kernel $(BUILD)/kernel.elf
+	#qemu-system-i386 -boot d -cdrom $(BUILD)/kernel.iso
+
+## Run kernel iso in QEMU (GRUB included)
+qemu-iso: $(BUILD)/kernel.iso
+	qemu-system-i386 -cdrom $(BUILD)/kernel.iso
+
+
+## Removes all local artifacts
+clean:
+	rm -rf build/
+
+.PHONY: help
+## This help screen
+help:
+	@printf "Available targets:\n\n"
+	@awk '/^[a-zA-Z\-_0-9%:\\]+/ { \
+		helpMessage = match(lastLine, /^## (.*)/); \
+		if (helpMessage) { \
+		helpCommand = $$1; \
+		helpMessage = substr(lastLine, RSTART + 3, RLENGTH); \
+	gsub("\\\\", "", helpCommand); \
+	gsub(":+$$", "", helpCommand); \
+		printf "  \x1b[32;01m%-35s\x1b[0m %s\n", helpCommand, helpMessage; \
+		} \
+	} \
+	{ lastLine = $$0 }' $(MAKEFILE_LIST) | sort -u
+	@printf "\n"
