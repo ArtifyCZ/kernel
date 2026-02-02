@@ -60,6 +60,8 @@ LDFLAGS += -nostdlib \
 	-z max-page-size=0x1000 \
 	--gc-sections
 LDFLAGS += -T kernel.ld
+LDFLAGS += -L $(BUILD)
+LDFLAGS += --whole-archive -l:libkernel.a
 
 
 $(BUILD)/%.o: %.asm $(BUILD)
@@ -71,8 +73,17 @@ $(BUILD)/%.o: %.c $(BUILD)
 	clang $(CFLAGS) -c $< -o $@
 
 
-$(BUILD)/kernel.elf: $(DEPS) $(KERNEL_OBJS) $(BUILD)
+$(BUILD)/kernel.elf: $(DEPS) $(KERNEL_OBJS) $(BUILD) $(BUILD)/libkernel.a
 	ld $(LDFLAGS) -o $(BUILD)/kernel.elf $(KERNEL_OBJS)
+
+
+.PHONY: $(BUILD)/libkernel.a
+$(BUILD)/libkernel.a: $(BUILD)
+	$(MAKE) -C kernel build-dev
+	cp -v kernel/target/x86_64-unknown-none/debug/libkernel.a $(BUILD)/
+
+kernel/clean:
+	$(MAKE) -C kernel clean
 
 
 $(BUILD)/kernel.iso: $(BUILD)/kernel.elf $(BUILD)/limine/limine $(BUILD)
@@ -131,7 +142,7 @@ qemu-debug: $(BUILD)/kernel.iso
 
 
 ## Removes all local artifacts
-clean:
+clean: kernel/clean
 	rm -rf $(BUILD)/
 	rm -rf $(DEPS)/
 
