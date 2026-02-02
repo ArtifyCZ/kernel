@@ -38,6 +38,7 @@ void interrupt_handler(struct stack_frame *frame) {
 static struct idtr idtr;
 
 void idt_init(void) {
+    __asm__ volatile ("cli"); // disable interrupts during idt initialization
     __asm__ volatile ("mov %%cs, %0" : "=r"(g_kernel_cs));
 
     idtr.base = (uintptr_t) &idt[0];
@@ -49,7 +50,7 @@ void idt_init(void) {
     }
 
     __asm__ volatile ("lidt %0" : : "m"(idtr)); // load the new IDT
-    __asm__ volatile ("sti"); // set the interrupt flag
+    __asm__ volatile ("sti"); // enable interrupts, initialization is complete
 
     serial_println("Initialized interrupts");
 }
