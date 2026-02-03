@@ -5,10 +5,6 @@
 #ifndef KERNEL_2026_01_31_BOOT_H
 #define KERNEL_2026_01_31_BOOT_H
 
-#include <limine.h>
-
-extern struct limine_framebuffer *framebuffer;
-
 // Halt and catch fire function.
 _Noreturn void hcf(void);
 

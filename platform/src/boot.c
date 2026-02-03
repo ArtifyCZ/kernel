@@ -36,40 +36,6 @@ static volatile struct limine_module_request module_request = {
         .revision = 0
 };
 
-size_t strlen(const char *string) {
-    size_t i = 1;
-    while (string[i] != 0x00) {
-        i++;
-    }
-
-    return i;
-}
-
-bool stringEndsWith(const char *string, const char *suffix) {
-    const char *string_idx = string + strlen(string) - 1;
-    const char *suffix_idx = suffix + strlen(suffix) - 1;
-    while (string <= string_idx && suffix <= suffix_idx) {
-        if (*string_idx != *suffix_idx) {
-            return false;
-        }
-        string_idx--;
-        suffix_idx--;
-    }
-    return true;
-}
-
-struct limine_file *getFile(const char *name) {
-    for (size_t i = 0; i < module_request.response->module_count; i++) {
-        struct limine_file *file = module_request.response->modules[i];
-        if (stringEndsWith(file->path, name)) {
-            return file;
-        }
-    }
-
-    return NULL;
-}
-
-
 
 // Finally, define the start and end markers for the Limine requests.
 // These can also be moved anywhere, to any .c file, as seen fit.
@@ -93,8 +59,6 @@ _Noreturn void hcf(void) {
     }
 }
 
-struct limine_framebuffer *framebuffer;
-
 // The following will be our kernel's entry point.
 // If renaming kmain() to something else, make sure to change the
 // linker script accordingly.
@@ -109,9 +73,6 @@ __attribute__((used)) void boot(void) {
         || framebuffer_request.response->framebuffer_count < 1) {
         hcf();
     }
-
-    // Fetch the first framebuffer.
-    framebuffer = framebuffer_request.response->framebuffers[0];
 
     __asm__ volatile ("cli"); // clear the interrupt flag
 
