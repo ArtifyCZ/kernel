@@ -1,6 +1,8 @@
 use crate::platform::memory_layout::{KERNEL_HEAP_BASE, KERNEL_HEAP_MAX, PAGE_FRAME_SIZE};
 use crate::platform::physical_memory_manager::PhysicalMemoryManager;
-use crate::platform::virtual_memory_manager::{vmm_map_page, vmm_translate};
+use crate::platform::physical_page_frame::PhysicalPageFrame;
+use crate::platform::virtual_memory_manager::VirtualMemoryManager;
+use crate::platform::virtual_page_address::VirtualPageAddress;
 use crate::serial_println;
 use core::alloc::{GlobalAlloc, Layout};
 use core::ffi::c_char;
@@ -59,12 +61,22 @@ unsafe fn map_page(page_frame: usize) -> Result<(), ()> {
         return Err(());
     }
 
-    if unsafe { vmm_translate(next_page_virt_addr) } != 0 {
+    if unsafe { VirtualMemoryManager::translate(next_page_virt_addr.try_into().unwrap()) }
+        .unwrap()
+        .is_some()
+    {
         unsafe { serial_println(b"Page already mapped\n\0".as_ptr() as *const c_char) };
         return Err(());
     }
 
-    if unsafe { vmm_map_page(next_page_virt_addr, page_frame, 0x02) } == false {
+    if unsafe {
+        VirtualMemoryManager::map_page(
+            VirtualPageAddress::new(next_page_virt_addr).unwrap(),
+            PhysicalPageFrame::new(page_frame).unwrap(),
+        )
+    }
+    .is_err()
+    {
         unsafe { serial_println(b"Failed to map page\n\0".as_ptr() as *const c_char) };
         return Err(());
     }
