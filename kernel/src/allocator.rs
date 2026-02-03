@@ -2,39 +2,13 @@ use core::alloc::{GlobalAlloc, Layout};
 use crate::serial_println;
 use core::ffi::c_char;
 use core::ptr::null_mut;
-
-pub const PAGE_FRAME_SIZE: usize = 0x1000; // 4 KiB
-
-pub const KERNEL_HEAP_SIZE: usize = 256 * 1024 * 1024; // 256 MiB
-pub const KERNEL_HEAP_BASE: usize = 0xFFFF_C000_0000_0000;
-pub const KERNEL_HEAP_MAX: usize = KERNEL_HEAP_BASE + KERNEL_HEAP_SIZE;
+use crate::platform::memory_layout::{KERNEL_HEAP_BASE, KERNEL_HEAP_MAX, PAGE_FRAME_SIZE};
+use crate::platform::physical_memory_manager::pmm_alloc_frame;
+use crate::platform::virtual_memory_manager::{vmm_map_page, vmm_translate};
 
 static mut NEXT_FREE_BYTE: usize = 0;
 
 static mut MAPPED_END: usize = 0;
-
-unsafe extern "C" {
-    // uintptr_t pmm_alloc_frame(void);
-    fn pmm_alloc_frame() -> usize;
-
-    // Page table flags (x86_64)
-    // #define VMM_PTE_P   (1ull << 0)   // Present
-    // #define VMM_PTE_W   (1ull << 1)   // Writable
-    // #define VMM_PTE_U   (1ull << 2)   // User
-    // #define VMM_PTE_PWT (1ull << 3)
-    // #define VMM_PTE_PCD (1ull << 4)
-    // #define VMM_PTE_A   (1ull << 5)
-    // #define VMM_PTE_D   (1ull << 6)
-    // #define VMM_PTE_PS  (1ull << 7)   // Large page (not used for 4KiB mappings)
-    // #define VMM_PTE_G   (1ull << 8)
-    // #define VMM_PTE_NX  (1ull << 63)  // No-execute
-    // bool vmm_map_page(uint64_t virt_addr, uint64_t phys_addr, uint64_t flags);
-    fn vmm_map_page(virt_addr: usize, phys_addr: usize, flags: usize) -> bool;
-
-    // uint64_t vmm_translate(uint64_t virt_addr);
-    // Returns 0 if not mapped
-    fn vmm_translate(virt_addr: usize) -> usize;
-}
 
 struct Allocator;
 

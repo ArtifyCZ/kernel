@@ -4,6 +4,7 @@
 extern crate alloc;
 
 mod allocator;
+mod platform;
 
 use alloc::ffi::CString;
 use core::ffi::c_char;
