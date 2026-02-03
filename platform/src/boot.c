@@ -2,7 +2,7 @@
 #include <stddef.h>
 #include <stdbool.h>
 #include <limine.h>
-#include "interrupts.h"
+#include "interrupts/interrupts.h"
 #include "boot.h"
 
 #include "physical_memory_manager.h"
@@ -69,7 +69,7 @@ _Noreturn void hcf(void) {
 }
 
 void try_virtual_mapping(void) {
-    const uintptr_t physical_frame = (uintptr_t)pmm_alloc_frame();
+    const uintptr_t physical_frame = pmm_alloc_frame();
     if (physical_frame == 0x0) {
         serial_println("Cannot allocate physical frame for virtual mapping!");
         return;
@@ -141,6 +141,10 @@ __attribute__((used)) void boot(void) {
     try_virtual_mapping();
 
     idt_init();
+
+    serial_println("Trying to invoke an interrupt");
+    __asm__ volatile ("int $0x0");
+    serial_println("Interrupt invoked successfully!");
 
     serial_println(module_request.response == NULL ? "No modules loaded." : "Modules loaded:");
 

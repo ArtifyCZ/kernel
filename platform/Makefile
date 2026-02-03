@@ -20,11 +20,11 @@ all: $(BUILD)/libplatform.a
 
 PLATFORM_SRC_FILES :=
 
-PLATFORM_SRC_FILES += $(wildcard src/*.c)
+PLATFORM_SRC_FILES += $(wildcard src/*.c) $(wildcard src/**/*.c)
 
 PLATFORM_NASM_FILES :=
 
-PLATFORM_NASM_FILES += $(wildcard src/*.asm)
+PLATFORM_NASM_FILES += $(wildcard src/*.asm) $(wildcard src/**/*.asm)
 
 PLATFORM_OBJS=
 PLATFORM_OBJS += $(patsubst %.c,$(BUILD)/%.o,$(PLATFORM_SRC_FILES))

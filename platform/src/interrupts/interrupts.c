@@ -5,8 +5,7 @@
 #include "interrupts.h"
 #include "stdint.h"
 #include "stdbool.h"
-#include "serial.h"
-#include "boot.h"
+#include "../serial.h"
 
 __attribute__((aligned(0x10)))
 static struct idt_entry idt[256]; // Create an array of IDT entries; aligned for performance
