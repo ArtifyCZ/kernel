@@ -4,6 +4,8 @@
 #include <limine.h>
 #include "interrupts.h"
 #include "boot.h"
+
+#include "physical_memory_manager.h"
 #include "serial.h"
 
 // Set the base revision to 4, this is recommended as this is the latest
@@ -28,6 +30,12 @@ __attribute__((used, section(".limine_requests")))
 static volatile struct limine_memmap_request memmap_request = {
         .id = LIMINE_MEMMAP_REQUEST_ID,
         .revision = 0
+};
+
+__attribute__((used, section(".limine_requests")))
+static volatile struct limine_hhdm_request hhdm_request = {
+    .id = LIMINE_HHDM_REQUEST_ID,
+    .revision = 0
 };
 
 __attribute__((used, section(".limine_requests")))
@@ -75,6 +83,25 @@ __attribute__((used)) void boot(void) {
     }
 
     serial_init();
+
+    pmm_init(memmap_request.response);
+
+    serial_println("Trying to allocate some page frames");
+    void *first_frame = pmm_alloc_frame();
+    for (size_t i = 0; i < 10; i++) {
+        serial_print(".");
+        first_frame = pmm_alloc_frame();
+    }
+    serial_println("");
+    serial_println("Done!");
+    serial_println("");
+    serial_println("Trying to free the first page frame");
+    pmm_free_frame(first_frame);
+    serial_println("Done!");
+    size_t frames_count = pmm_get_available_frames_count();
+    if (frames_count == 0) {
+        serial_println("No frames left!");
+    }
 
     idt_init();
 

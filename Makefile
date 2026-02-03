@@ -84,10 +84,10 @@ $(BUILD)/limine/limine:
 
 .PHONY: qemu qemu-debug
 qemu: $(BUILD)/kernel.iso
-	qemu-system-x86_64 -serial stdio -cdrom $(BUILD)/kernel.iso
+	qemu-system-x86_64 -serial stdio -m 256M -cdrom $(BUILD)/kernel.iso
 
 qemu-debug: $(BUILD)/kernel.iso
-	qemu-system-x86_64 -serial stdio -s -S -cdrom $(BUILD)/kernel.iso
+	qemu-system-x86_64 -serial stdio -m 256M -s -S -cdrom $(BUILD)/kernel.iso
 
 
 ## Removes all local artifacts
