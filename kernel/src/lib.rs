@@ -1,6 +1,8 @@
 #![no_std]
 #![no_main]
 
+mod allocator;
+
 use core::ffi::c_char;
 #[panic_handler]
 #[cfg(not(test))]
@@ -25,7 +27,9 @@ unsafe extern "C" {
 
 fn main() {
     unsafe {
-        let message = b"Hello from Rust!\0";
-        serial_println(message.as_ptr() as *const c_char);
+        let message = b"Hello from allocated Rust!\0";
+        let allocated_message = allocator::malloc(message.len());
+        allocated_message.copy_from_nonoverlapping(message.as_ptr(), message.len());
+        serial_println(allocated_message as *const c_char);
     }
 }
