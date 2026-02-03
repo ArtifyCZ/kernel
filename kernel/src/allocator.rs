@@ -14,9 +14,35 @@ static mut MAPPED_END: usize = 0;
 
 struct Allocator;
 
+#[global_allocator]
+static GLOBAL_ALLOCATOR: Allocator = Allocator;
+
 unsafe impl GlobalAlloc for Allocator {
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
-        unsafe { malloc(layout.size()) }
+        loop {
+            if unsafe { NEXT_FREE_BYTE } + layout.size() <= unsafe { MAPPED_END } {
+                break;
+            }
+
+            let new_page = unsafe {
+                PhysicalMemoryManager::alloc_frame()
+                    .expect("Failed to allocate physical page frame")
+            };
+
+            unsafe {
+                match map_page(new_page.inner()) {
+                    Ok(()) => (),
+                    Err(()) => return null_mut(),
+                }
+            }
+        }
+
+        unsafe {
+            let ptr = NEXT_FREE_BYTE as *mut u8;
+            NEXT_FREE_BYTE += layout.size();
+
+            ptr
+        }
     }
 
     unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
@@ -24,9 +50,6 @@ unsafe impl GlobalAlloc for Allocator {
         // @TODO: implement deallocation as well
     }
 }
-
-#[global_allocator]
-static GLOBAL_ALLOCATOR: Allocator = Allocator;
 
 unsafe fn map_page(page_frame: usize) -> Result<(), ()> {
     unsafe {
@@ -86,30 +109,4 @@ unsafe fn map_page(page_frame: usize) -> Result<(), ()> {
     }
 
     Ok(())
-}
-
-pub unsafe fn malloc(size: usize) -> *mut u8 {
-    loop {
-        if unsafe { NEXT_FREE_BYTE } + size <= unsafe { MAPPED_END } {
-            break;
-        }
-
-        let new_page = unsafe {
-            PhysicalMemoryManager::alloc_frame().expect("Failed to allocate physical page frame")
-        };
-
-        unsafe {
-            match map_page(new_page.inner()) {
-                Ok(()) => (),
-                Err(()) => return null_mut(),
-            }
-        }
-    }
-
-    unsafe {
-        let ptr = NEXT_FREE_BYTE as *mut u8;
-        NEXT_FREE_BYTE += size;
-
-        ptr
-    }
 }
