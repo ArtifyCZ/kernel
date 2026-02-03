@@ -1,6 +1,6 @@
 RUST_TARGET := x86_64-unknown-none
 
-.PHONY: build
+.PHONY: build-dev
 build-dev:
 	cargo build --target $(RUST_TARGET) --profile dev
 

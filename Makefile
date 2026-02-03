@@ -1,7 +1,6 @@
 default: help
 
 BUILD=build
-DEPS=dependencies
 
 # Toolchain for building the 'limine' executable for the host.
 HOST_CC := clang
@@ -18,41 +17,6 @@ $(BUILD):
 all: $(BUILD)/kernel.iso
 
 
-KERNEL_SRC_FILES :=
-
-KERNEL_SRC_FILES += $(wildcard src/*.c)
-
-KERNEL_NASM_FILES :=
-
-KERNEL_NASM_FILES += $(wildcard src/*.asm)
-
-KERNEL_OBJS=
-KERNEL_OBJS += $(patsubst %.c,$(BUILD)/%.o,$(KERNEL_SRC_FILES))
-KERNEL_OBJS += $(patsubst %.asm,$(BUILD)/%.o,$(KERNEL_NASM_FILES))
-
-
-INCLUDE_HEADERS=
-
-INCLUDE_HEADERS += $(DEPS)/limine-protocol/include
-INCLUDE_HEADERS += $(DEPS)/freestnd-c-hdrs/include
-
-
-CFLAGS :=
-CFLAGS += $(addprefix -I ,$(INCLUDE_HEADERS))
-CFLAGS += -g -O0 -pipe -target x86_64-linux-gnu
-CFLAGS += -Wall \
-	-Wextra \
-	-std=gnu11 \
-	-nostdinc \
-	-ffreestanding \
-	-fno-stack-protector \
-	-fno-stack-check \
-	-fno-lto \
-	-fno-PIC \
-	-ffunction-sections \
-	-fdata-sections
-
-
 LDFLAGS :=
 LDFLAGS += -m elf_x86_64
 LDFLAGS += -nostdlib \
@@ -61,29 +25,31 @@ LDFLAGS += -nostdlib \
 	--gc-sections
 LDFLAGS += -T kernel.ld
 LDFLAGS += -L $(BUILD)
-LDFLAGS += --whole-archive -l:libkernel.a
+LDFLAGS += -l:libplatform.a
+LDFLAGS += -l:libkernel.a
 
 
-$(BUILD)/%.o: %.asm $(BUILD)
-	@mkdir -p $(dir $@)
-	nasm -felf64 $< -o $@
-
-$(BUILD)/%.o: %.c $(BUILD)
-	@mkdir -p $(dir $@)
-	clang $(CFLAGS) -c $< -o $@
-
-
-$(BUILD)/kernel.elf: $(DEPS) $(KERNEL_OBJS) $(BUILD) $(BUILD)/libkernel.a
-	ld $(LDFLAGS) -o $(BUILD)/kernel.elf $(KERNEL_OBJS)
-
+.PHONY: $(BUILD)/libplatform.a
+$(BUILD)/libplatform.a: $(BUILD)
+	$(MAKE) -C platform all
+	cp -v platform/build/libplatform.a $(BUILD)/
 
 .PHONY: $(BUILD)/libkernel.a
 $(BUILD)/libkernel.a: $(BUILD)
 	$(MAKE) -C kernel build-dev
 	cp -v kernel/target/x86_64-unknown-none/debug/libkernel.a $(BUILD)/
 
+
+.PHONY: platform/clean
+platform/clean:
+	$(MAKE) -C platform clean
+
+.PHONY: kernel/clean
 kernel/clean:
 	$(MAKE) -C kernel clean
+
+$(BUILD)/kernel.elf: $(BUILD) $(BUILD)/libkernel.a $(BUILD)/libplatform.a
+	ld $(LDFLAGS) -o $(BUILD)/kernel.elf
 
 
 $(BUILD)/kernel.iso: $(BUILD)/kernel.elf $(BUILD)/limine/limine $(BUILD)
@@ -104,23 +70,6 @@ $(BUILD)/kernel.iso: $(BUILD)/kernel.elf $(BUILD)/limine/limine $(BUILD)
 	$(BUILD)/limine/limine bios-install $(BUILD)/kernel.iso
 	rm -rf $(BUILD)/isofiles
 
-# xorriso -outdev $(BUILD)/kernel.iso -blank as_needed -map $(BUILD)/isofiles / -boot_image grub bin_path=/boot/grub/stage1
-
-
-$(DEPS): $(DEPS)/limine-protocol $(DEPS)/freestnd-c-hdrs
-
-
-$(DEPS)/limine-protocol: repo = https://codeberg.org/Limine/limine-protocol.git
-$(DEPS)/limine-protocol: commit = 42e836e30242c2c14f889fd76c6f9a57b0c18ec2
-
-$(DEPS)/freestnd-c-hdrs: repo = https://codeberg.org/OSDev/freestnd-c-hdrs-0bsd.git
-$(DEPS)/freestnd-c-hdrs: commit = 097259a899d30f0a4b7a694de2de5fdda942e923
-
-
-$(DEPS)/%:
-	rm -rf $@
-	git clone $(repo) $@
-	git -C $@ -c advice.detachedHead=false checkout $(commit)
 
 $(BUILD)/limine/limine:
 	rm -rf $(BUILD)/limine
@@ -142,9 +91,8 @@ qemu-debug: $(BUILD)/kernel.iso
 
 
 ## Removes all local artifacts
-clean: kernel/clean
+clean: kernel/clean platform/clean
 	rm -rf $(BUILD)/
-	rm -rf $(DEPS)/
 
 .PHONY: help
 ## This help screen
