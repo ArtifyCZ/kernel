@@ -1,10 +1,10 @@
-use core::alloc::{GlobalAlloc, Layout};
+use crate::platform::memory_layout::{KERNEL_HEAP_BASE, KERNEL_HEAP_MAX, PAGE_FRAME_SIZE};
+use crate::platform::physical_memory_manager::PhysicalMemoryManager;
+use crate::platform::virtual_memory_manager::{vmm_map_page, vmm_translate};
 use crate::serial_println;
+use core::alloc::{GlobalAlloc, Layout};
 use core::ffi::c_char;
 use core::ptr::null_mut;
-use crate::platform::memory_layout::{KERNEL_HEAP_BASE, KERNEL_HEAP_MAX, PAGE_FRAME_SIZE};
-use crate::platform::physical_memory_manager::pmm_alloc_frame;
-use crate::platform::virtual_memory_manager::{vmm_map_page, vmm_translate};
 
 static mut NEXT_FREE_BYTE: usize = 0;
 
@@ -25,15 +25,6 @@ unsafe impl GlobalAlloc for Allocator {
 
 #[global_allocator]
 static GLOBAL_ALLOCATOR: Allocator = Allocator;
-
-unsafe fn alloc_frame() -> Result<usize, ()> {
-    let page_frame = unsafe { pmm_alloc_frame() };
-    if page_frame == 0 {
-        return Err(());
-    }
-
-    Ok(page_frame)
-}
 
 unsafe fn map_page(page_frame: usize) -> Result<(), ()> {
     unsafe {
@@ -92,20 +83,11 @@ pub unsafe fn malloc(size: usize) -> *mut u8 {
         }
 
         let new_page = unsafe {
-            match alloc_frame() {
-                Ok(page) => page,
-                Err(()) => {
-                    serial_println(b"Failed to allocate memory\n\0".as_ptr() as *const c_char);
-                    return null_mut();
-                }
-            }
+            PhysicalMemoryManager::alloc_frame().expect("Failed to allocate physical page frame")
         };
-        if new_page == 0 {
-            return null_mut(); // Failed to alloc a new frame
-        }
 
         unsafe {
-            match map_page(new_page) {
+            match map_page(new_page.inner()) {
                 Ok(()) => (),
                 Err(()) => return null_mut(),
             }
