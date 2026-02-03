@@ -74,8 +74,6 @@ __attribute__((used)) void boot(void) {
         hcf();
     }
 
-    __asm__ volatile ("cli"); // clear the interrupt flag
-
     serial_init();
 
     idt_init();
