@@ -1,3 +1,4 @@
+use thiserror_no_std::Error;
 use crate::platform::physical_page_frame::{PhysicalPageFrame, PhysicalPageFrameParseError};
 
 unsafe extern "C" {
@@ -7,10 +8,12 @@ unsafe extern "C" {
 
 pub struct PhysicalMemoryManager;
 
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum PhysicalMemoryManagerAllocFrameError {
+    #[error("No available physical memory pages")]
     NoAvailablePages,
-    InvalidPageFrame(PhysicalPageFrameParseError),
+    #[error(transparent)]
+    InvalidPageFrame(#[from] PhysicalPageFrameParseError),
 }
 
 impl PhysicalMemoryManager {
@@ -22,11 +25,5 @@ impl PhysicalMemoryManager {
         }
 
         Ok(PhysicalPageFrame::new(page_frame)?)
-    }
-}
-
-impl From<PhysicalPageFrameParseError> for PhysicalMemoryManagerAllocFrameError {
-    fn from(value: PhysicalPageFrameParseError) -> Self {
-        PhysicalMemoryManagerAllocFrameError::InvalidPageFrame(value)
     }
 }
