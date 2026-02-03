@@ -12,7 +12,7 @@ fn panic(_: &::core::panic::PanicInfo) -> ! {
 }
 
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn kernel_entrypoint() {
+pub unsafe extern "C" fn kernel_main() {
     main();
 }
 

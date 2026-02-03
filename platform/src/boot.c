@@ -4,7 +4,6 @@
 #include <limine.h>
 #include "interrupts.h"
 #include "boot.h"
-#include "main.h"
 #include "serial.h"
 
 // Set the base revision to 4, this is recommended as this is the latest
@@ -99,7 +98,7 @@ struct limine_framebuffer *framebuffer;
 // The following will be our kernel's entry point.
 // If renaming kmain() to something else, make sure to change the
 // linker script accordingly.
-__attribute__((used)) void bootEntrypoint(void) {
+__attribute__((used)) void boot(void) {
     // Ensure the bootloader actually understands our base revision (see spec).
     if (LIMINE_BASE_REVISION_SUPPORTED(limine_base_revision) == false) {
         hcf();
@@ -129,7 +128,7 @@ __attribute__((used)) void bootEntrypoint(void) {
         serial_println(file->path);
     }
 
-    main();
+    kernel_main();
 
     // We're done, just hang...
     hcf();
