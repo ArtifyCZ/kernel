@@ -79,3 +79,12 @@ void serial_println(const char *message) {
     }
     write_serial('\n');
 }
+
+void serial_print_hex_u64(uint64_t value) {
+    static const char *hex = "0123456789abcdef";
+    serial_print("0x");
+    for (int i = 60; i >= 0; i -= 4) {
+        uint8_t nib = (value >> (uint64_t)i) & 0xF;
+        write_serial(hex[nib]);
+    }
+}

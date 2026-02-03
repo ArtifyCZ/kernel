@@ -7,6 +7,7 @@
 
 #include "physical_memory_manager.h"
 #include "serial.h"
+#include "virtual_memory_manager.h"
 
 // Set the base revision to 4, this is recommended as this is the latest
 // base revision described by the Limine boot protocol specification.
@@ -67,6 +68,45 @@ _Noreturn void hcf(void) {
     }
 }
 
+void try_virtual_mapping(void) {
+    const uintptr_t physical_frame = (uintptr_t)pmm_alloc_frame();
+    if (physical_frame == 0x0) {
+        serial_println("Cannot allocate physical frame for virtual mapping!");
+        return;
+    }
+    const uintptr_t virtual_address = 0xFFFFC00000000000;
+    if (vmm_translate(virtual_address)  != 0x0) {
+        serial_println("Cannot map virtual address 0xFFFFC00000000000, address already mapped!");
+        return;
+    }
+
+    if (!vmm_map_page(virtual_address, physical_frame, VMM_PTE_W)) {
+        serial_println("Cannot map virtual address 0xFFFFC00000000000!");
+        return;
+    }
+
+    serial_println("Virtual mapping successful!");
+    serial_println("Trying to write to the mapped memory");
+
+    volatile uint64_t *ptr = (volatile uint64_t *)virtual_address;
+    ptr[0] = 0x1122334455667788ull;
+    ptr[1] = 0xA5A5A5A5A5A5A5A5ull;
+
+    serial_println("Done!");
+
+    if (ptr[0] != 0x1122334455667788ull || ptr[1] != 0xA5A5A5A5A5A5A5A5ull) {
+        serial_println("VMM test: readback mismatch");
+        (void)vmm_unmap_page(virtual_address);
+        pmm_free_frame((void *)physical_frame);
+        return;
+    }
+
+    (void)vmm_unmap_page(virtual_address);
+    pmm_free_frame((void *)physical_frame);
+
+    serial_println("VMM test: success!");
+}
+
 // The following will be our kernel's entry point.
 // If renaming kmain() to something else, make sure to change the
 // linker script accordingly.
@@ -84,24 +124,21 @@ __attribute__((used)) void boot(void) {
 
     serial_init();
 
+    if (memmap_request.response == NULL) {
+        serial_println("Limine memmap missing; cannot init PMM");
+        hcf();
+    }
+
     pmm_init(memmap_request.response);
 
-    serial_println("Trying to allocate some page frames");
-    void *first_frame = pmm_alloc_frame();
-    for (size_t i = 0; i < 10; i++) {
-        serial_print(".");
-        first_frame = pmm_alloc_frame();
+    if (hhdm_request.response == NULL) {
+        serial_println("Limine HHDM missing; cannot init VMM");
+        hcf();
     }
-    serial_println("");
-    serial_println("Done!");
-    serial_println("");
-    serial_println("Trying to free the first page frame");
-    pmm_free_frame(first_frame);
-    serial_println("Done!");
-    size_t frames_count = pmm_get_available_frames_count();
-    if (frames_count == 0) {
-        serial_println("No frames left!");
-    }
+
+    vmm_init(hhdm_request.response->offset);
+
+    try_virtual_mapping();
 
     idt_init();
 

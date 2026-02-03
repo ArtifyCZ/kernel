@@ -14,10 +14,15 @@
 void pmm_init(struct limine_memmap_response *memmap);
 
 /**
+ * @FIXME: Return a uintptr_t not a void *, as it's a physical address not a real pointer
+ *
  * @return physical page address (4KiB frame); NULL if out of available of physical frames
  */
 void *pmm_alloc_frame(void);
 
+/**
+ * @FIXME: Accept a uintptr_t not a void *, as it's a physical address not a real pointer
+ */
 void pmm_free_frame(void *physical_frame_address);
 
 size_t pmm_get_available_frames_count(void);
