@@ -97,12 +97,12 @@ void try_virtual_mapping(void) {
     if (ptr[0] != 0x1122334455667788ull || ptr[1] != 0xA5A5A5A5A5A5A5A5ull) {
         serial_println("VMM test: readback mismatch");
         (void)vmm_unmap_page(virtual_address);
-        pmm_free_frame((void *)physical_frame);
+        pmm_free_frame(physical_frame);
         return;
     }
 
     (void)vmm_unmap_page(virtual_address);
-    pmm_free_frame((void *)physical_frame);
+    pmm_free_frame(physical_frame);
 
     serial_println("VMM test: success!");
 }

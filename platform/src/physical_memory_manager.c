@@ -63,25 +63,23 @@ void pmm_init(struct limine_memmap_response *memmap) {
     }
 }
 
-/**
- * @return physical page address (4KiB frame); NULL if out of available of physical frames
- */
-void *pmm_alloc_frame(void) {
-    return (void *)pop_page_frame();
+uintptr_t pmm_alloc_frame(void) {
+    return pop_page_frame();
 }
 
-void pmm_free_frame(void *physical_frame_address) {
-    if (physical_frame_address == NULL) {
+bool pmm_free_frame(uintptr_t physical_frame_address) {
+    if (physical_frame_address == 0x0) {
         serial_println("Trying to free NULL ptr as physical frame address!");
-        return;
+        return false;
     }
 
-    if ((uintptr_t)physical_frame_address % PPM_PAGE_SIZE != 0) {
+    if (physical_frame_address % PPM_PAGE_SIZE != 0) {
         serial_println("Trying to free non-aligned physical frame address!");
-        return;
+        return false;
     }
 
-    push_page_frame((uintptr_t)physical_frame_address);
+    push_page_frame(physical_frame_address);
+    return true;
 }
 
 size_t pmm_get_available_frames_count(void) {

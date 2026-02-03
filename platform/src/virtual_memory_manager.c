@@ -40,11 +40,11 @@ static inline uint16_t pd_index(uint64_t va) { return (va >> 21) & 0x1FF; }
 static inline uint16_t pt_index(uint64_t va) { return (va >> 12) & 0x1FF; }
 
 static uint64_t *alloc_table_page(void) {
-    void *phys = pmm_alloc_frame();
+    const uintptr_t phys = pmm_alloc_frame();
     if (phys == 0) {
         return NULL;
     }
-    uint64_t *tbl = (uint64_t *) phys_to_virt((uint64_t) phys);
+    uint64_t *tbl = phys_to_virt(phys);
     // Zero it (page tables must start empty).
     for (size_t i = 0; i < 512; i++) {
         tbl[i] = 0;
