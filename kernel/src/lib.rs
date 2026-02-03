@@ -1,9 +1,14 @@
 #![no_std]
 #![no_main]
 
+extern crate alloc;
+
 mod allocator;
 
+use alloc::ffi::CString;
 use core::ffi::c_char;
+use core::str::FromStr;
+
 #[panic_handler]
 #[cfg(not(test))]
 fn panic(_: &::core::panic::PanicInfo) -> ! {
@@ -27,9 +32,7 @@ unsafe extern "C" {
 
 fn main() {
     unsafe {
-        let message = b"Hello from allocated Rust!\0";
-        let allocated_message = allocator::malloc(message.len());
-        allocated_message.copy_from_nonoverlapping(message.as_ptr(), message.len());
-        serial_println(allocated_message as *const c_char);
+        let message = CString::from_str("Hello from CString in Rust!").expect("Failed to create CString");
+        serial_println(message.as_ptr());
     }
 }

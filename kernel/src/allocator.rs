@@ -1,3 +1,4 @@
+use core::alloc::{GlobalAlloc, Layout};
 use crate::serial_println;
 use core::ffi::c_char;
 use core::ptr::null_mut;
@@ -34,6 +35,22 @@ unsafe extern "C" {
     // Returns 0 if not mapped
     fn vmm_translate(virt_addr: usize) -> usize;
 }
+
+struct Allocator;
+
+unsafe impl GlobalAlloc for Allocator {
+    unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
+        unsafe { malloc(layout.size()) }
+    }
+
+    unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
+        // Do nothing for now
+        // @TODO: implement deallocation as well
+    }
+}
+
+#[global_allocator]
+static GLOBAL_ALLOCATOR: Allocator = Allocator;
 
 unsafe fn alloc_frame() -> Result<usize, ()> {
     let page_frame = unsafe { pmm_alloc_frame() };
