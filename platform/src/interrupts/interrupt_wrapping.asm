@@ -11,6 +11,12 @@ isr_wrap_%+%1:
     jmp common_interrupt_handler
 %endmacro
 
+%macro pic_irq_wrap 2
+isr_wrap_%+%2:
+    push 0
+    push %2
+    jmp common_interrupt_handler
+%endmacro
 
 
 common_interrupt_handler:
@@ -22,8 +28,6 @@ common_interrupt_handler:
     push   r9
     push   r10
     push   r11
-
-    cli                 ; disable interrupts
 
     mov rdi, rsp        ; pass the stack pointer as the first argument to interrupt_handler
     call interrupt_handler
@@ -38,8 +42,6 @@ common_interrupt_handler:
     pop    rax
 
     add rsp, 16         ; pop interrupt_number + error_code
-
-    sti                 ; enable interrupts
 
     iretq
 
@@ -78,11 +80,27 @@ isr_no_err_wrap 28
 isr_no_err_wrap 29
 isr_err_wrap    30
 isr_no_err_wrap 31
+pic_irq_wrap 0,32
+pic_irq_wrap 1,33
+pic_irq_wrap 2,34
+pic_irq_wrap 3,35
+pic_irq_wrap 4,36
+pic_irq_wrap 5,37
+pic_irq_wrap 6,38
+pic_irq_wrap 7,39
+pic_irq_wrap 8,40
+pic_irq_wrap 9,41
+pic_irq_wrap 10,42
+pic_irq_wrap 11,43
+pic_irq_wrap 12,44
+pic_irq_wrap 13,45
+pic_irq_wrap 14,46
+pic_irq_wrap 15,47
 
 global isr_stub_table
 isr_stub_table:
 %assign i 0
-%rep    32
+%rep    47
     dq isr_wrap_%+i ; use DQ instead if targeting 64-bit
 %assign i i+1
 %endrep

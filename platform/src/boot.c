@@ -5,6 +5,7 @@
 #include "interrupts/interrupts.h"
 #include "boot.h"
 
+#include "keyboard.h"
 #include "modules.h"
 #include "physical_memory_manager.h"
 #include "psf.h"
@@ -165,6 +166,15 @@ __attribute__((used)) void boot(void) {
     terminal_clear();
 
     terminal_println("Hello world!");
+
+    while (true) {
+        char c = keyboard_read_char();
+        if (c == 0) {
+            continue;
+        }
+
+        terminal_print_char(c);
+    }
 
     kernel_main();
 
