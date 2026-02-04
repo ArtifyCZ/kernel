@@ -47,10 +47,32 @@ unsafe impl GlobalAlloc for Allocator {
                     .expect("Failed to allocate physical page frame")
             };
 
+            let next_virt_page_addr = unsafe {
+                if let Some(last_mapped_virtual_page) = LAST_MAPPED_VIRTUAL_PAGE {
+                    last_mapped_virtual_page.next_page()
+                } else {
+                    VirtualPageAddress::new(KERNEL_HEAP_BASE).unwrap()
+                }
+            };
+
+            if unsafe { VirtualMemoryManager::translate(next_virt_page_addr) }
+                .unwrap()
+                .is_some()
+            {
+                unsafe { serial_println(b"Page already mapped\n\0".as_ptr() as *const c_char) };
+                return null_mut();
+            }
+
+            if unsafe { VirtualMemoryManager::map_page(next_virt_page_addr, new_page) }.is_err() {
+                unsafe { serial_println(b"Failed to map page\n\0".as_ptr() as *const c_char) };
+                return null_mut();
+            }
+
             unsafe {
-                match map_page(new_page) {
-                    Ok(()) => (),
-                    Err(()) => return null_mut(),
+                LAST_MAPPED_VIRTUAL_PAGE = Some(next_virt_page_addr);
+
+                if let None = NEXT_AVAILABLE_VIRTUAL_ADDRESS {
+                    NEXT_AVAILABLE_VIRTUAL_ADDRESS = Some(next_virt_page_addr.start())
                 }
             }
         }
@@ -58,7 +80,8 @@ unsafe impl GlobalAlloc for Allocator {
         unsafe {
             if let Some(next_available_virtual_address) = NEXT_AVAILABLE_VIRTUAL_ADDRESS {
                 let ptr = next_available_virtual_address.inner() as *mut u8;
-                NEXT_AVAILABLE_VIRTUAL_ADDRESS = Some(next_available_virtual_address + layout.size());
+                NEXT_AVAILABLE_VIRTUAL_ADDRESS =
+                    Some(next_available_virtual_address + layout.size());
                 serial_println(b"Allocated memory successfully!\n\0".as_ptr() as *const c_char);
                 ptr
             } else {
@@ -71,44 +94,4 @@ unsafe impl GlobalAlloc for Allocator {
         // Do nothing for now
         // @TODO: implement deallocation as well
     }
-}
-
-unsafe fn map_page(page_frame: PhysicalPageFrame) -> Result<(), ()> {
-    let next_virt_page_addr = unsafe {
-        if let Some(last_mapped_virtual_page) = LAST_MAPPED_VIRTUAL_PAGE {
-            last_mapped_virtual_page.next_page()
-        } else {
-            VirtualPageAddress::new(KERNEL_HEAP_BASE).unwrap()
-        }
-    };
-
-    if unsafe { VirtualMemoryManager::translate(next_virt_page_addr) }
-        .unwrap()
-        .is_some()
-    {
-        unsafe { serial_println(b"Page already mapped\n\0".as_ptr() as *const c_char) };
-        return Err(());
-    }
-
-    if unsafe {
-        VirtualMemoryManager::map_page(
-            next_virt_page_addr,
-            page_frame,
-        )
-    }
-    .is_err()
-    {
-        unsafe { serial_println(b"Failed to map page\n\0".as_ptr() as *const c_char) };
-        return Err(());
-    }
-
-    unsafe {
-        LAST_MAPPED_VIRTUAL_PAGE = Some(next_virt_page_addr);
-
-        if let None = NEXT_AVAILABLE_VIRTUAL_ADDRESS {
-            NEXT_AVAILABLE_VIRTUAL_ADDRESS = Some(next_virt_page_addr.start())
-        }
-    }
-
-    Ok(())
 }

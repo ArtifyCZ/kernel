@@ -7,13 +7,12 @@ mod allocator;
 mod platform;
 
 use alloc::ffi::CString;
-use core::alloc::{GlobalAlloc, Layout};
 use core::ffi::c_char;
 use core::str::FromStr;
 
 #[panic_handler]
 #[cfg(not(test))]
-fn panic(info: &::core::panic::PanicInfo) -> ! {
+fn panic(_: &::core::panic::PanicInfo) -> ! {
     unsafe {
         serial_println(b"Panic occurred; cannot print the message yet\0".as_ptr() as *const c_char);
         hcf()
@@ -34,10 +33,7 @@ unsafe extern "C" {
 
 fn main() {
     unsafe {
-        let message = b"Hello from Rust!\0";
-        let message_allocated = allocator::GLOBAL_ALLOCATOR.alloc(Layout::for_value(message));
-        message_allocated.copy_from_nonoverlapping(message.as_ptr(), message.len());
-        // let message = CString::from_str("Hello from CString in Rust!").expect("Failed to create CString");
-        serial_println(message_allocated as *const c_char);
+        let message = CString::from_str("Hello from CString in Rust!").expect("Failed to create CString");
+        serial_println(message.as_ptr());
     }
 }
