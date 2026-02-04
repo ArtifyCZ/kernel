@@ -3,13 +3,6 @@ default: help
 BUILD=build
 DEPS=dependencies
 
-# Toolchain for building the 'limine' executable for the host.
-HOST_CC := clang
-HOST_CFLAGS := -g -O2 -pipe
-HOST_CPPFLAGS :=
-HOST_LDFLAGS :=
-HOST_LIBS :=
-
 
 $(BUILD):
 	mkdir -p $(BUILD)
@@ -88,16 +81,6 @@ $(DEPS)/%:
 	rm -rf $@
 	git clone $(repo) $@
 	git -C $@ -c advice.detachedHead=false checkout $(commit)
-
-$(BUILD)/limine/limine:
-	rm -rf $(BUILD)/limine
-	git clone https://codeberg.org/Limine/Limine.git $(BUILD)/limine --branch=v10.x-binary --depth=1
-	$(MAKE) -C $(BUILD)/limine \
-		CC="$(HOST_CC)" \
-		CFLAGS="$(HOST_CFLAGS)" \
-		CPPFLAGS="$(HOST_CPPFLAGS)" \
-		LDFLAGS="$(HOST_LDFLAGS)" \
-		LIBS="$(HOST_LIBS)"
 
 
 ## Removes all local artifacts
