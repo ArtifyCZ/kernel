@@ -17,6 +17,9 @@ $(BUILD):
 all: $(BUILD)/kernel.iso
 
 
+CC := clang
+
+
 LD := ld.lld
 
 LDFLAGS :=

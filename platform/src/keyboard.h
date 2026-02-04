@@ -8,7 +8,9 @@
 #include "stdbool.h"
 #include "stdint.h"
 
-char keyboard_read_char(void);
+bool keyboard_read_char(uint8_t *out);
+
+char kbd_translate_scancode(uint8_t sc);
 
 void kbd_read_and_push(void);
 

@@ -20,30 +20,52 @@ isr_wrap_%+%2:
 
 
 common_interrupt_handler:
-    ; save the registers
-    push   rax
-    push   rcx
-    push   rdx
-    push   r8
-    push   r9
-    push   r10
-    push   r11
+    ; Save ALL GPRs (interrupts can happen anywhere; must preserve full context)
+    push r15
+    push r14
+    push r13
+    push r12
+    push r11
+    push r10
+    push r9
+    push r8
+    push rdi
+    push rsi
+    push rbp
+    push rbx
+    push rdx
+    push rcx
+    push rax
 
-    mov rdi, rsp        ; pass the stack pointer as the first argument to interrupt_handler
+    ; Ensure 16-byte alignment for the C call.
+    ; At this point, pushes above are 15*8 = 120 bytes => misaligns by 8.
+    sub rsp, 8
+
+    lea rdi, [rsp + 8]   ; pass pointer to the saved-register frame (skip alignment pad)
     call interrupt_handler
 
-    ; restore the registers
-    pop    r11
-    pop    r10
-    pop    r9
-    pop    r8
-    pop    rdx
-    pop    rcx
-    pop    rax
+    add rsp, 8
 
-    add rsp, 16         ; pop interrupt_number + error_code
+    ; Restore ALL GPRs
+    pop rax
+    pop rcx
+    pop rdx
+    pop rbx
+    pop rbp
+    pop rsi
+    pop rdi
+    pop r8
+    pop r9
+    pop r10
+    pop r11
+    pop r12
+    pop r13
+    pop r14
+    pop r15
 
+    add rsp, 16          ; pop interrupt_number + error_code (or vector + CPU error code)
     iretq
+
 
 
 extern interrupt_handler

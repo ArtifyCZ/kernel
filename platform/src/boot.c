@@ -27,14 +27,14 @@ static volatile uint64_t limine_base_revision[] = LIMINE_BASE_REVISION(4);
 
 __attribute__((used, section(".limine_requests")))
 static volatile struct limine_framebuffer_request framebuffer_request = {
-        .id = LIMINE_FRAMEBUFFER_REQUEST_ID,
-        .revision = 0
+    .id = LIMINE_FRAMEBUFFER_REQUEST_ID,
+    .revision = 0
 };
 
 __attribute__((used, section(".limine_requests")))
 static volatile struct limine_memmap_request memmap_request = {
-        .id = LIMINE_MEMMAP_REQUEST_ID,
-        .revision = 0
+    .id = LIMINE_MEMMAP_REQUEST_ID,
+    .revision = 0
 };
 
 __attribute__((used, section(".limine_requests")))
@@ -45,8 +45,8 @@ static volatile struct limine_hhdm_request hhdm_request = {
 
 __attribute__((used, section(".limine_requests")))
 static volatile struct limine_module_request module_request = {
-        .id = LIMINE_MODULE_REQUEST_ID,
-        .revision = 0
+    .id = LIMINE_MODULE_REQUEST_ID,
+    .revision = 0
 };
 
 
@@ -79,7 +79,7 @@ void try_virtual_mapping(void) {
         return;
     }
     const uintptr_t virtual_address = 0xFFFFC00000000000;
-    if (vmm_translate(virtual_address)  != 0x0) {
+    if (vmm_translate(virtual_address) != 0x0) {
         serial_println("Cannot map virtual address 0xFFFFC00000000000, address already mapped!");
         return;
     }
@@ -92,7 +92,7 @@ void try_virtual_mapping(void) {
     serial_println("Virtual mapping successful!");
     serial_println("Trying to write to the mapped memory");
 
-    volatile uint64_t *ptr = (volatile uint64_t *)virtual_address;
+    volatile uint64_t *ptr = (volatile uint64_t *) virtual_address;
     ptr[0] = 0x1122334455667788ull;
     ptr[1] = 0xA5A5A5A5A5A5A5A5ull;
 
@@ -100,12 +100,12 @@ void try_virtual_mapping(void) {
 
     if (ptr[0] != 0x1122334455667788ull || ptr[1] != 0xA5A5A5A5A5A5A5A5ull) {
         serial_println("VMM test: readback mismatch");
-        (void)vmm_unmap_page(virtual_address);
+        (void) vmm_unmap_page(virtual_address);
         pmm_free_frame(physical_frame);
         return;
     }
 
-    (void)vmm_unmap_page(virtual_address);
+    (void) vmm_unmap_page(virtual_address);
     pmm_free_frame(physical_frame);
 
     serial_println("VMM test: success!");
@@ -167,9 +167,18 @@ __attribute__((used)) void boot(void) {
 
     terminal_println("Hello world!");
 
+    uint8_t sc;
     while (true) {
-        char c = keyboard_read_char();
-        if (c == 0) {
+        uintptr_t sc_ptr = (uintptr_t) &sc;
+        if (sc_ptr == (uintptr_t) 0x64) {
+            serial_println("Should not really happen, stack for some reason 0x64!!!");
+            continue;
+        }
+        if (!keyboard_read_char((uint8_t *) sc_ptr)) {
+            continue;
+        }
+        char c = kbd_translate_scancode(sc);
+        if (c == '\0') {
             continue;
         }
 

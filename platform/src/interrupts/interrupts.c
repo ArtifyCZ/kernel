@@ -28,7 +28,7 @@ void idt_set_descriptor(uint8_t vector, void *isr, uint8_t flags) {
     descriptor->reserved = 0;
 }
 
-#define IDT_MAX_DESCRIPTORS 255
+#define IDT_MAX_DESCRIPTORS 47
 
 static bool vectors[IDT_MAX_DESCRIPTORS];
 

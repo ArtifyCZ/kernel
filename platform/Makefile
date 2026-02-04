@@ -40,6 +40,7 @@ CFLAGS += -Wall \
 	-ffreestanding \
 	-fno-stack-protector \
 	-fno-stack-check \
+	-mno-red-zone \
 	-fno-lto \
 	-fno-PIC \
 	-ffunction-sections \
@@ -59,7 +60,7 @@ $(BUILD)/%.o: %.asm $(BUILD)
 
 $(BUILD)/%.o: %.c $(BUILD)
 	@mkdir -p $(dir $@)
-	clang $(CFLAGS) -c $< -o $@
+	$(CC) $(CFLAGS) -c $< -o $@
 
 
 $(BUILD)/libplatform.a: $(DEPS) $(BUILD) $(PLATFORM_OBJS)
