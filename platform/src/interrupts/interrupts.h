@@ -5,25 +5,10 @@
 #ifndef KERNEL_2026_01_31_INTERRUPTS_H
 #define KERNEL_2026_01_31_INTERRUPTS_H
 
+
 #include "stdint.h"
 
 void idt_init(void);
-
-struct cpu_state {
-    unsigned long rax;
-    unsigned long rcx;
-    unsigned long r8;
-    unsigned long r9;
-    unsigned long r10;
-    unsigned long r11;
-} __attribute__((packed));
-
-struct stack_state {
-    unsigned long error_code;
-    unsigned long eip;
-    unsigned long cs;
-    unsigned long eflags;
-} __attribute__((packed));
 
 struct stack_frame {
     uint64_t rax;
@@ -66,8 +51,5 @@ struct idt_entry {
     uint32_t    reserved;     // Set to zero
 } __attribute__((packed));
 
-
-//__attribute__((used))
-//void interrupt_handler(struct cpu_state cpuState, struct stack_state stackState);
 
 #endif //KERNEL_2026_01_31_INTERRUPTS_H
