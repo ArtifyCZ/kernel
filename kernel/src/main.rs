@@ -6,6 +6,7 @@ extern crate alloc;
 mod allocator;
 mod entrypoint;
 mod platform;
+mod spin_lock;
 
 use alloc::ffi::CString;
 use core::ffi::c_char;

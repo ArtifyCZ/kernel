@@ -1,6 +1,5 @@
-use crate::platform::memory_layout::{KERNEL_HEAP_BASE, KERNEL_HEAP_MAX, PAGE_FRAME_SIZE};
+use crate::platform::memory_layout::KERNEL_HEAP_BASE;
 use crate::platform::physical_memory_manager::PhysicalMemoryManager;
-use crate::platform::physical_page_frame::PhysicalPageFrame;
 use crate::platform::virtual_address::VirtualAddress;
 use crate::platform::virtual_memory_manager::VirtualMemoryManager;
 use crate::platform::virtual_page_address::VirtualPageAddress;
@@ -9,10 +8,13 @@ use core::alloc::{GlobalAlloc, Layout};
 use core::ffi::c_char;
 use core::ops::Add;
 use core::ptr::null_mut;
+use crate::spin_lock::SpinLock;
 
 static mut NEXT_AVAILABLE_VIRTUAL_ADDRESS: Option<VirtualAddress> = None;
 
 static mut LAST_MAPPED_VIRTUAL_PAGE: Option<VirtualPageAddress> = None;
+
+static HEAP_LOCK: SpinLock = SpinLock::new();
 
 pub struct Allocator;
 
@@ -29,6 +31,7 @@ impl Add<usize> for VirtualAddress {
 
 unsafe impl GlobalAlloc for Allocator {
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
+        HEAP_LOCK.lock();
         loop {
             let next_available_virtual_address = unsafe { NEXT_AVAILABLE_VIRTUAL_ADDRESS };
             let last_mapped_virtual_page = unsafe { LAST_MAPPED_VIRTUAL_PAGE };
