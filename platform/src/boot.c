@@ -9,6 +9,7 @@
 #include "physical_memory_manager.h"
 #include "psf.h"
 #include "serial.h"
+#include "terminal.h"
 #include "virtual_memory_manager.h"
 
 // Set the base revision to 4, this is recommended as this is the latest
@@ -154,11 +155,16 @@ __attribute__((used)) void boot(void) {
 
     if (font != NULL) {
         psf_init(font->address, font->size, framebuffer_request.response->framebuffers[0]);
+        terminal_init(framebuffer_request.response->framebuffers[0]);
     } else {
         serial_println("Could not find kernel-font.psf!");
     }
 
-    psf_render_char('C', 1, 1, 0xFFFF00);
+    terminal_set_foreground_color(0xD4DBDF);
+    terminal_set_background_color(0x04121B);
+    terminal_clear();
+
+    terminal_println("Hello world!");
 
     kernel_main();
 

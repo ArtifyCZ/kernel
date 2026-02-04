@@ -58,7 +58,7 @@ void psf_init(void *font_address, uint64_t font_size_arg, struct limine_framebuf
     serial_println("");
 }
 
-void psf_render_char(char c, uint32_t row, uint32_t col, uint32_t color) {
+void psf_render_char(char c, uint32_t col, uint32_t row, uint32_t foreground_color, uint32_t background_color) {
     uint8_t *glyph = &font_data[c * font.bytesperglyph];
     uint32_t stride = font.bytesperglyph / font.height;
     uint32_t y0;
@@ -70,8 +70,8 @@ void psf_render_char(char c, uint32_t row, uint32_t col, uint32_t color) {
             uint8_t bit = bits >> (7 - x0 % 8) & 1;
             volatile uint32_t *fb_ptr = framebuffer->address;
             fb_ptr += (col * font.width + x0) + (row * font.height + y0) * (framebuffer->pitch / 4);
-            if (bit) fb_ptr[0] = color;
-            else fb_ptr[0] = 0;
+            if (bit) fb_ptr[0] = foreground_color;
+            else fb_ptr[0] = background_color;
         }
     }
 }

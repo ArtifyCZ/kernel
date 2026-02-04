@@ -41,6 +41,6 @@ struct PSF2_Font {
 
 void psf_init(void *font_address, uint64_t font_size, struct limine_framebuffer *framebuffer);
 
-void psf_render_char(char c, uint32_t row, uint32_t col, uint32_t color);
+void psf_render_char(char c, uint32_t col, uint32_t row, uint32_t foreground_color, uint32_t background_color);
 
 #endif //KERNEL_2026_01_31_PSF_H
