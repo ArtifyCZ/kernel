@@ -7,7 +7,7 @@ default = []
 
 [lib]
 crate-type = ["staticlib"]
-path = "src/lib.rs"
+path = "src/main.rs"
 
 [profile.dev]
 panic = "abort"

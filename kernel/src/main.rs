@@ -4,6 +4,7 @@
 extern crate alloc;
 
 mod allocator;
+mod entrypoint;
 mod platform;
 
 use alloc::ffi::CString;
@@ -17,11 +18,6 @@ fn panic(_: &::core::panic::PanicInfo) -> ! {
         serial_println(b"Panic occurred; cannot print the message yet\0".as_ptr() as *const c_char);
         hcf()
     }
-}
-
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn kernel_main() {
-    main();
 }
 
 unsafe extern "C" {

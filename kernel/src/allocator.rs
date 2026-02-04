@@ -42,6 +42,7 @@ unsafe impl GlobalAlloc for Allocator {
                 }
             }
 
+
             let new_page = unsafe {
                 PhysicalMemoryManager::alloc_frame()
                     .expect("Failed to allocate physical page frame")
