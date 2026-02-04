@@ -5,7 +5,9 @@
 #include "interrupts/interrupts.h"
 #include "boot.h"
 
+#include "modules.h"
 #include "physical_memory_manager.h"
+#include "psf.h"
 #include "serial.h"
 #include "virtual_memory_manager.h"
 
@@ -146,14 +148,17 @@ __attribute__((used)) void boot(void) {
     __asm__ volatile ("int $0x0");
     serial_println("Interrupt invoked successfully!");
 
-    serial_println(module_request.response == NULL ? "No modules loaded." : "Modules loaded:");
+    modules_init(module_request.response);
 
-    for (size_t i = 0; module_request.response != NULL && i < module_request.response->module_count; i++) {
-        struct limine_file *file = module_request.response->modules[i];
-        serial_print("Module ");
-        serial_print(": ");
-        serial_println(file->path);
+    const struct limine_file *font = module_find("kernel-font.psf");
+
+    if (font != NULL) {
+        psf_init(font->address, font->size, framebuffer_request.response->framebuffers[0]);
+    } else {
+        serial_println("Could not find kernel-font.psf!");
     }
+
+    psf_render_char('C', 1, 1, 0xFFFF00);
 
     kernel_main();
 

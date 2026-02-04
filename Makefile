@@ -58,6 +58,7 @@ $(BUILD)/kernel.iso: $(BUILD)/kernel.elf $(BUILD)/limine/limine $(BUILD)
 	mkdir -p $(BUILD)/isofiles/EFI/BOOT
 
 	cp $(BUILD)/kernel.elf $(BUILD)/isofiles/boot/kernel.elf
+	cp Mik_8x16.psf $(BUILD)/isofiles/boot/kernel-font.psf
 
 	cp -v $(BUILD)/limine/limine-bios.sys $(BUILD)/limine/limine-bios-cd.bin $(BUILD)/limine/limine-uefi-cd.bin $(BUILD)/isofiles/boot/limine/
 	cp -v $(BUILD)/limine/BOOTX64.EFI $(BUILD)/isofiles/EFI/BOOT/
