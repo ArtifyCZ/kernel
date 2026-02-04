@@ -8,7 +8,9 @@
 #include "keyboard.h"
 #include "modules.h"
 #include "physical_memory_manager.h"
+#include "pit.h"
 #include "psf.h"
+#include "scheduler.h"
 #include "serial.h"
 #include "terminal.h"
 #include "virtual_memory_manager.h"
@@ -111,6 +113,37 @@ void try_virtual_mapping(void) {
     serial_println("VMM test: success!");
 }
 
+static void thread_heartbeat(void *arg) {
+    (void)arg;
+
+    for (;;) {
+        terminal_print_char('.');
+        for (volatile uint64_t i = 0; i < 2000000; i++) { }
+        sched_yield_if_needed();
+    }
+}
+
+static void thread_keyboard(void *arg) {
+    (void)arg;
+
+    for (;;) {
+        uint8_t sc;
+        if (!keyboard_read_char(&sc)) {
+            sched_yield_if_needed();
+            continue;
+        }
+
+        char c = kbd_translate_scancode(sc);
+        if (c == '\0') {
+            sched_yield_if_needed();
+            continue;
+        }
+
+        terminal_print_char(c);
+        sched_yield_if_needed();
+    }
+}
+
 // The following will be our kernel's entry point.
 // If renaming kmain() to something else, make sure to change the
 // linker script accordingly.
@@ -167,23 +200,14 @@ __attribute__((used)) void boot(void) {
 
     terminal_println("Hello world!");
 
-    uint8_t sc;
-    while (true) {
-        uintptr_t sc_ptr = (uintptr_t) &sc;
-        if (sc_ptr == (uintptr_t) 0x64) {
-            serial_println("Should not really happen, stack for some reason 0x64!!!");
-            continue;
-        }
-        if (!keyboard_read_char((uint8_t *) sc_ptr)) {
-            continue;
-        }
-        char c = kbd_translate_scancode(sc);
-        if (c == '\0') {
-            continue;
-        }
+    sched_init();
 
-        terminal_print_char(c);
-    }
+    (void)sched_create(thread_keyboard, NULL);
+    (void)sched_create(thread_heartbeat, NULL);
+
+    pit_init(100);
+
+    sched_start();
 
     kernel_main();
 

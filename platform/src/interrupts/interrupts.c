@@ -8,8 +8,8 @@
 #include "../boot.h"
 #include "../keyboard.h"
 #include "../pic.h"
+#include "../pit.h"
 #include "../serial.h"
-#include "../terminal.h"
 
 __attribute__((aligned(0x10)))
 static struct idt_entry idt[256]; // Create an array of IDT entries; aligned for performance
@@ -47,6 +47,7 @@ void interrupt_handler(struct stack_frame *frame) {
 
     if (frame->interrupt_number == 0x20) {
         // This should be the timer IRQ0
+        pit_handle_irq0();
         return;
     }
 
