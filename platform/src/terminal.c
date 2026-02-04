@@ -45,6 +45,14 @@ void terminal_print_char(char c) {
         return;
     }
 
+    if (c == '\b') {
+        if (cursor_x > 0) {
+            cursor_x--;
+        }
+        psf_render_char(' ', cursor_x, cursor_y, foreground_color, background_color);
+        return;
+    }
+
     psf_render_char(c, cursor_x, cursor_y, foreground_color, background_color);
     cursor_x++;
 }
