@@ -1,27 +1,45 @@
 use crate::platform::memory_layout::{KERNEL_HEAP_BASE, KERNEL_HEAP_MAX, PAGE_FRAME_SIZE};
 use crate::platform::physical_memory_manager::PhysicalMemoryManager;
 use crate::platform::physical_page_frame::PhysicalPageFrame;
+use crate::platform::virtual_address::VirtualAddress;
 use crate::platform::virtual_memory_manager::VirtualMemoryManager;
 use crate::platform::virtual_page_address::VirtualPageAddress;
 use crate::serial_println;
 use core::alloc::{GlobalAlloc, Layout};
 use core::ffi::c_char;
+use core::ops::Add;
 use core::ptr::null_mut;
 
-static mut NEXT_FREE_BYTE: usize = 0;
+static mut NEXT_AVAILABLE_VIRTUAL_ADDRESS: Option<VirtualAddress> = None;
 
-static mut MAPPED_END: usize = 0;
+static mut LAST_MAPPED_VIRTUAL_PAGE: Option<VirtualPageAddress> = None;
 
-struct Allocator;
+pub struct Allocator;
 
 #[global_allocator]
-static GLOBAL_ALLOCATOR: Allocator = Allocator;
+pub static GLOBAL_ALLOCATOR: Allocator = Allocator;
+
+impl Add<usize> for VirtualAddress {
+    type Output = VirtualAddress;
+
+    fn add(self, rhs: usize) -> Self::Output {
+        VirtualAddress::new(self.inner() + rhs).unwrap()
+    }
+}
 
 unsafe impl GlobalAlloc for Allocator {
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
         loop {
-            if unsafe { NEXT_FREE_BYTE } + layout.size() <= unsafe { MAPPED_END } {
-                break;
+            let next_available_virtual_address = unsafe { NEXT_AVAILABLE_VIRTUAL_ADDRESS };
+            let last_mapped_virtual_page = unsafe { LAST_MAPPED_VIRTUAL_PAGE };
+            if let Some(last_mapped_virtual_page) = last_mapped_virtual_page {
+                if let Some(next_available_virtual_address) = next_available_virtual_address {
+                    if next_available_virtual_address + layout.size()
+                        <= last_mapped_virtual_page.end()
+                    {
+                        break;
+                    }
+                }
             }
 
             let new_page = unsafe {
@@ -30,7 +48,7 @@ unsafe impl GlobalAlloc for Allocator {
             };
 
             unsafe {
-                match map_page(new_page.inner()) {
+                match map_page(new_page) {
                     Ok(()) => (),
                     Err(()) => return null_mut(),
                 }
@@ -38,10 +56,14 @@ unsafe impl GlobalAlloc for Allocator {
         }
 
         unsafe {
-            let ptr = NEXT_FREE_BYTE as *mut u8;
-            NEXT_FREE_BYTE += layout.size();
-
-            ptr
+            if let Some(next_available_virtual_address) = NEXT_AVAILABLE_VIRTUAL_ADDRESS {
+                let ptr = next_available_virtual_address.inner() as *mut u8;
+                NEXT_AVAILABLE_VIRTUAL_ADDRESS = Some(next_available_virtual_address + layout.size());
+                serial_println(b"Allocated memory successfully!\n\0".as_ptr() as *const c_char);
+                ptr
+            } else {
+                null_mut()
+            }
         }
     }
 
@@ -51,40 +73,16 @@ unsafe impl GlobalAlloc for Allocator {
     }
 }
 
-unsafe fn map_page(page_frame: usize) -> Result<(), ()> {
-    unsafe {
-        if NEXT_FREE_BYTE == 0 {
-            NEXT_FREE_BYTE = KERNEL_HEAP_BASE;
-        }
-    }
-
-    let next_page_virt_addr = unsafe {
-        if MAPPED_END == 0 {
-            KERNEL_HEAP_BASE
+unsafe fn map_page(page_frame: PhysicalPageFrame) -> Result<(), ()> {
+    let next_virt_page_addr = unsafe {
+        if let Some(last_mapped_virtual_page) = LAST_MAPPED_VIRTUAL_PAGE {
+            last_mapped_virtual_page.next_page()
         } else {
-            MAPPED_END + 1 // increment and we are in the next page
+            VirtualPageAddress::new(KERNEL_HEAP_BASE).unwrap()
         }
     };
 
-    let new_mapped_end = unsafe {
-        if MAPPED_END == 0 {
-            KERNEL_HEAP_BASE + PAGE_FRAME_SIZE - 1 // decrement so that it does not overflow into the next page
-        } else {
-            MAPPED_END + PAGE_FRAME_SIZE
-        }
-    };
-
-    if next_page_virt_addr > KERNEL_HEAP_MAX {
-        unsafe { serial_println(b"Exceeded maximum address space\n\0".as_ptr() as *const c_char) };
-        return Err(());
-    }
-
-    if next_page_virt_addr % PAGE_FRAME_SIZE != 0 {
-        unsafe { serial_println(b"Page alignment error\n\0".as_ptr() as *const c_char) };
-        return Err(());
-    }
-
-    if unsafe { VirtualMemoryManager::translate(next_page_virt_addr.try_into().unwrap()) }
+    if unsafe { VirtualMemoryManager::translate(next_virt_page_addr) }
         .unwrap()
         .is_some()
     {
@@ -94,8 +92,8 @@ unsafe fn map_page(page_frame: usize) -> Result<(), ()> {
 
     if unsafe {
         VirtualMemoryManager::map_page(
-            VirtualPageAddress::new(next_page_virt_addr).unwrap(),
-            PhysicalPageFrame::new(page_frame).unwrap(),
+            next_virt_page_addr,
+            page_frame,
         )
     }
     .is_err()
@@ -105,7 +103,11 @@ unsafe fn map_page(page_frame: usize) -> Result<(), ()> {
     }
 
     unsafe {
-        MAPPED_END = new_mapped_end;
+        LAST_MAPPED_VIRTUAL_PAGE = Some(next_virt_page_addr);
+
+        if let None = NEXT_AVAILABLE_VIRTUAL_ADDRESS {
+            NEXT_AVAILABLE_VIRTUAL_ADDRESS = Some(next_virt_page_addr.start())
+        }
     }
 
     Ok(())

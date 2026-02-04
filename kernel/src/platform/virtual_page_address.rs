@@ -29,12 +29,17 @@ impl VirtualPageAddress {
         self.0.inner()
     }
 
-    pub const fn start(&self) -> usize {
-        self.0.inner()
+    pub const fn start(&self) -> VirtualAddress {
+        self.0
     }
 
-    pub const fn end(&self) -> usize {
-        self.0.inner() + PAGE_FRAME_SIZE - 1
+    // Returns the virtual address of the last byte of this virtual page
+    pub fn end(&self) -> VirtualAddress {
+        self.0 + (PAGE_FRAME_SIZE - 1)
+    }
+
+    pub fn next_page(&self) -> VirtualPageAddress {
+        Self::new(self.0.inner() + PAGE_FRAME_SIZE).unwrap()
     }
 }
 

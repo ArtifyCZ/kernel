@@ -1,7 +1,7 @@
 use thiserror_no_std::Error;
 use crate::platform::memory_layout::{KERNEL_HEAP_BASE, KERNEL_HEAP_MAX, PAGE_FRAME_SIZE};
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, Ord, PartialOrd, Eq, PartialEq)]
 pub struct VirtualAddress(usize);
 
 #[derive(Debug, Error)]
