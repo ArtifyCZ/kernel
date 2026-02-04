@@ -17,6 +17,8 @@ $(BUILD):
 all: $(BUILD)/kernel.iso
 
 
+LD := ld.lld
+
 LDFLAGS :=
 LDFLAGS += -m elf_x86_64
 LDFLAGS += -nostdlib \
@@ -49,7 +51,7 @@ kernel/clean:
 	$(MAKE) -C kernel clean
 
 $(BUILD)/kernel.elf: $(BUILD) $(BUILD)/libkernel.a $(BUILD)/libplatform.a
-	ld $(LDFLAGS) -o $(BUILD)/kernel.elf
+	$(LD) $(LDFLAGS) -o $(BUILD)/kernel.elf
 
 
 $(BUILD)/kernel.iso: $(BUILD)/kernel.elf $(BUILD)/limine/limine $(BUILD)
