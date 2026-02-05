@@ -21,7 +21,7 @@ $(BUILD):
 
 
 .PHONY: all
-all:: $(BUILD)/kernel.iso
+all:: $(BUILD)/kernel.$(ARCH).iso
 
 
 LDFLAGS :=
