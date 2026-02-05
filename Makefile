@@ -1,7 +1,9 @@
 default: help
+.SUFFIXES:            # Delete the default suffixes
 
 ARCH := x86_64
-BUILD := build
+BUILD := $(abspath ./build)
+DEPS := $(abspath ./dependencies)
 
 
 CC := clang
@@ -9,12 +11,17 @@ LD := ld.lld
 NASM := nasm
 AARCH64_ELF_AS := aarch64-elf-as
 
+get_current_dir = $(realpath $(dir $(lastword $(MAKEFILE_LIST))))
+srctree := $(call get_current_dir)
+
+relative_path_from_srctree = $(1:$(srctree)/%=%)
 
 $(BUILD):
 	mkdir -p $(BUILD)
 
 
-all: $(BUILD)/kernel.iso
+.PHONY: all
+all:: $(BUILD)/kernel.iso
 
 
 LDFLAGS :=
@@ -24,18 +31,9 @@ LDFLAGS += -nostdlib \
 	--gc-sections
 LDFLAGS += -T kernel.$(ARCH).ld
 LDFLAGS += -L $(BUILD)
-LDFLAGS += -l:libplatform.a
-LDFLAGS += -l:libkernel.a
+LDFLAGS += -l:libplatform.$(ARCH).a
+LDFLAGS += -l:libkernel.$(ARCH).a
 
-MAKE_PLATFORM := $(MAKE) -C platform
-MAKE_PLATFORM += ARCH="$(ARCH)"
-MAKE_PLATFORM += CC="$(CC)"
-MAKE_PLATFORM += NASM="$(NASM)"
-MAKE_PLATFORM += AARCH64_ELF_AS="$(AARCH64_ELF_AS)"
-MAKE_PLATFORM += LD="$(LD)"
-
-MAKE_KERNEL := $(MAKE) -C kernel
-MAKE_KERNEL += ARCH="$(ARCH)"
 
 MAKE_LIMINE := $(MAKE) -C $(BUILD)/limine
 MAKE_LIMINE += CC="$(CC)"
@@ -44,45 +42,32 @@ MAKE_LIMINE += CPPFLAGS=""
 MAKE_LIMINE += LDFLAGS=""
 MAKE_LIMINE += LIBS=""
 
-.PHONY: $(BUILD)/libplatform.a
-$(BUILD)/libplatform.a: $(BUILD)
-	$(MAKE_PLATFORM) all
-	cp -v platform/build/libplatform.a $(BUILD)/
 
-.PHONY: $(BUILD)/libkernel.a
-$(BUILD)/libkernel.a: $(BUILD)
-	$(MAKE_KERNEL) build-dev
-	cp -v kernel/target/$(ARCH)-unknown-none/debug/libkernel.a $(BUILD)/
+include kernel/Makefile
+include platform/Makefile
 
 
-.PHONY: platform/clean
-platform/clean:
-	$(MAKE_PLATFORM) clean
+$(BUILD)/kernel.$(ARCH).elf: $(BUILD) $(BUILD)/libkernel.$(ARCH).a $(BUILD)/libplatform.$(ARCH).a
+	$(LD) $(LDFLAGS) -o $(BUILD)/kernel.$(ARCH).elf
 
-.PHONY: kernel/clean
-kernel/clean:
-	$(MAKE_KERNEL) clean
+isofiles_dir := $(BUILD)/isofiles/$(ARCH)
 
-$(BUILD)/kernel.elf: $(BUILD) $(BUILD)/libkernel.a $(BUILD)/libplatform.a
-	$(LD) $(LDFLAGS) -o $(BUILD)/kernel.elf
+$(BUILD)/kernel.$(ARCH).iso: $(BUILD)/kernel.$(ARCH).elf $(BUILD)/limine/limine $(BUILD)
+	mkdir -p $(isofiles_dir)/boot/limine/
+	cp -v limine.conf $(isofiles_dir)/boot/limine/
+	mkdir -p $(isofiles_dir)/EFI/BOOT
 
+	cp $(BUILD)/kernel.$(ARCH).elf $(isofiles_dir)/boot/kernel.elf
+	cp Mik_8x16.psf $(isofiles_dir)/boot/kernel-font.psf
 
-$(BUILD)/kernel.$(ARCH).iso: $(BUILD)/kernel.elf $(BUILD)/limine/limine $(BUILD)
-	mkdir -p $(BUILD)/isofiles/boot/limine/
-	cp -v limine.conf $(BUILD)/isofiles/boot/limine/
-	mkdir -p $(BUILD)/isofiles/EFI/BOOT
-
-	cp $(BUILD)/kernel.elf $(BUILD)/isofiles/boot/kernel.elf
-	cp Mik_8x16.psf $(BUILD)/isofiles/boot/kernel-font.psf
-
-	cp -v $(BUILD)/limine/limine-bios.sys $(BUILD)/limine/limine-bios-cd.bin $(BUILD)/limine/limine-uefi-cd.bin $(BUILD)/isofiles/boot/limine/
-	cp -v $(BUILD)/limine/BOOTX64.EFI $(BUILD)/isofiles/EFI/BOOT/
-	cp -v $(BUILD)/limine/BOOTIA32.EFI $(BUILD)/isofiles/EFI/BOOT/
+	cp -v $(BUILD)/limine/limine-bios.sys $(BUILD)/limine/limine-bios-cd.bin $(BUILD)/limine/limine-uefi-cd.bin $(isofiles_dir)/boot/limine/
+	cp -v $(BUILD)/limine/BOOTX64.EFI $(isofiles_dir)/EFI/BOOT/
+	cp -v $(BUILD)/limine/BOOTIA32.EFI $(isofiles_dir)/EFI/BOOT/
 	xorriso -as mkisofs -R -r -J -b boot/limine/limine-bios-cd.bin \
 		-no-emul-boot -boot-load-size 4 -boot-info-table -hfsplus \
 		-apm-block-size 2048 --efi-boot boot/limine/limine-uefi-cd.bin \
 		-efi-boot-part --efi-boot-image --protective-msdos-label \
-		$(BUILD)/isofiles -o $(BUILD)/kernel.$(ARCH).iso
+		$(isofiles_dir) -o $(BUILD)/kernel.$(ARCH).iso
 	$(BUILD)/limine/limine bios-install $(BUILD)/kernel.$(ARCH).iso
 	rm -rf $(BUILD)/isofiles
 
@@ -99,12 +84,13 @@ qemu: $(BUILD)/kernel.$(ARCH).iso
 	qemu-system-$(ARCH) $(QEMUFLAGS)
 
 qemu-debug: $(BUILD)/kernel.$(ARCH).iso
-	qemu-system-$(ARCH) $(QEMUFLAGS)
+	qemu-system-$(ARCH) -s -S $(QEMUFLAGS)
 
 
 ## Removes all local artifacts
-clean: kernel/clean platform/clean
+clean::
 	rm -rf $(BUILD)/
+	rm -rf $(DEPS)/
 
 .PHONY: help
 ## This help screen

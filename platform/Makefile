@@ -1,35 +1,25 @@
-BUILD=build
-DEPS=dependencies
-
-
-
-
 # Check if the architecture is supported.
 ifeq ($(filter $(ARCH),aarch64 x86_64),)
     $(error Architecture $(ARCH) not supported)
 endif
 
-
-default: help
-
-$(BUILD):
-	mkdir -p $(BUILD)
-
-all: $(BUILD)/libplatform.a
-
+platform_dir := $(realpath $(call get_current_dir))
+platform_rel_dir := $(call relative_path_from_srctree,$(platform_dir))
+platform_src_dir := $(platform_dir)/src
+platform_obj_build_dir := $(BUILD)/$(call relative_path_from_srctree,$(platform_dir))/objs_$(ARCH)
 
 PLATFORM_SRC_FILES :=
 
-PLATFORM_SRC_FILES += $(wildcard src/*.c) $(wildcard src/**/*.c)
+PLATFORM_SRC_FILES += $(wildcard $(platform_dir)/src/*.c) $(wildcard $(platform_dir)/src/**/*.c)
 
 PLATFORM_ASM_FILES :=
-PLATFORM_ASM_FILES += $(wildcard src/*.$(ARCH).asm) $(wildcard src/**/*.$(ARCH).asm)
-PLATFORM_ASM_FILES += $(wildcard src/*.$(ARCH).S) $(wildcard src/**/*.$(ARCH).S)
+PLATFORM_ASM_FILES += $(wildcard $(platform_src_dir)/*.$(ARCH).asm) $(wildcard $(platform_src_dir)/**/*.$(ARCH).asm)
+PLATFORM_ASM_FILES += $(wildcard $(platform_src_dir)/*.$(ARCH).S) $(wildcard $(platform_src_dir)/**/*.$(ARCH).S)
 
 PLATFORM_OBJS=
-PLATFORM_OBJS += $(patsubst %.c,$(BUILD)/%.o,$(PLATFORM_SRC_FILES))
-PLATFORM_OBJS += $(patsubst %.asm,$(BUILD)/%.o,$(PLATFORM_ASM_FILES))
-PLATFORM_OBJS += $(patsubst %.S,$(BUILD)/%.o,$(PLATFORM_ASM_FILES))
+PLATFORM_OBJS += $(patsubst $(platform_src_dir)/%.c,$(platform_obj_build_dir)/%.$(ARCH).o,$(PLATFORM_SRC_FILES))
+PLATFORM_OBJS += $(patsubst $(platform_src_dir)/%.$(ARCH).asm,$(platform_obj_build_dir)/%.$(ARCH).o,$(PLATFORM_ASM_FILES))
+PLATFORM_OBJS += $(patsubst $(platform_src_dir)/%.$(ARCH).S,$(platform_obj_build_dir)/%.$(ARCH).o,$(PLATFORM_ASM_FILES))
 
 
 INCLUDE_HEADERS=
@@ -56,13 +46,6 @@ CFLAGS += -Wall \
 	-fdata-sections
 
 
-LDFLAGS :=
-LDFLAGS += -m aarch64elf
-LDFLAGS += -nostdlib \
-	-static \
-	--gc-sections
-
-
 ifeq ($(ARCH),x86_64)
 	NASMFLAGS += -f elf64
 else ifeq ($(ARCH),aarch64)
@@ -71,22 +54,22 @@ $(error Compilation of assembly not configured for architecture $(ARCH) yet)
 endif
 
 
-$(BUILD)/%.x86_64.o: %.x86_64.asm $(BUILD)
+$(platform_obj_build_dir)/%.x86_64.o: $(platform_dir)/src/%.x86_64.asm $(BUILD)
 	(mkdir -p $(dir $@) || true)
 	$(NASM) $(NASMFLAGS) $< -o $@
 
-$(BUILD)/%.aarch64.o: %.aarch64.S $(BUILD)
+$(platform_obj_build_dir)/%.aarch64.o: $(platform_dir)/src/%.aarch64.S $(BUILD)
 	(mkdir -p $(dir $@) || true)
 	$(AARCH64_ELF_AS) $< -o $@
 
-$(BUILD)/%.o: %.c $(BUILD)
+$(platform_obj_build_dir)/%.$(ARCH).o: $(platform_dir)/src/%.c $(BUILD)
 	(mkdir -p $(dir $@) || true)
 	$(CC) $(CFLAGS) -c $< -o $@
 
 
-$(BUILD)/libplatform.a: $(BUILD) $(DEPS) $(PLATFORM_OBJS)
-	(rm $(BUILD)/libplatform.a || true)
-	ar rcs $(BUILD)/libplatform.a $(PLATFORM_OBJS)
+$(BUILD)/libplatform.$(ARCH).a: $(BUILD) $(DEPS) $(PLATFORM_OBJS)
+	(rm $(BUILD)/libplatform.$(ARCH).a || true)
+	ar rcs $(BUILD)/libplatform.$(ARCH).a $(PLATFORM_OBJS)
 
 
 $(DEPS): $(DEPS)/limine-protocol $(DEPS)/freestnd-c-hdrs
@@ -103,26 +86,3 @@ $(DEPS)/%:
 	rm -rf $@
 	git clone $(repo) $@
 	git -C $@ -c advice.detachedHead=false checkout $(commit)
-
-
-## Removes all local artifacts
-clean:
-	rm -rf $(BUILD)/
-	rm -rf $(DEPS)/
-
-.PHONY: help
-## This help screen
-help:
-	@printf "Available targets:\n\n"
-	@awk '/^[a-zA-Z\-_0-9%:\\]+/ { \
-		helpMessage = match(lastLine, /^## (.*)/); \
-		if (helpMessage) { \
-		helpCommand = $$1; \
-		helpMessage = substr(lastLine, RSTART + 3, RLENGTH); \
-	gsub("\\\\", "", helpCommand); \
-	gsub(":+$$", "", helpCommand); \
-		printf "  \x1b[32;01m%-35s\x1b[0m %s\n", helpCommand, helpMessage; \
-		} \
-	} \
-	{ lastLine = $$0 }' $(MAKEFILE_LIST) | sort -u
-	@printf "\n"
