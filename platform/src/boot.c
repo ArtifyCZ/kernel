@@ -180,7 +180,13 @@ __attribute__((used)) void boot(void) {
     idt_init();
 
     serial_println("Trying to invoke an interrupt");
+#if defined (__x86_64__)
     __asm__ volatile ("int $0x0");
+#elif defined (__aarch64__) || defined (__riscv)
+    asm ("svc 0");
+#else
+#error Architecture not supported
+#endif
     serial_println("Interrupt invoked successfully!");
 
     modules_init(module_request.response);

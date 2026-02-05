@@ -8,6 +8,7 @@
 #include "serial.h"
 #include "stdbool.h"
 #include "terminal.h"
+#include "interrupts/interrupts.h"
 
 #define MAX_THREADS  8
 #define STACK_SIZE   (16 * 1024)
@@ -33,9 +34,6 @@ static int g_current = -1;
 static volatile bool g_need_resched = false;
 
 static struct thread_ctx boot_ctx;
-
-static inline void cli(void) { __asm__ volatile ("cli" ::: "memory"); }
-static inline void sti(void) { __asm__ volatile ("sti" ::: "memory"); }
 
 void sched_request_reschedule(void) {
     g_need_resched = true;
@@ -68,7 +66,7 @@ static int pick_next_runnable(void) {
 }
 
 int sched_create(thread_fn_t fn, void *arg) {
-    cli();
+    disable_interrupts();
 
     int idx = -1;
     for (int i = 0; i < MAX_THREADS; i++) {
@@ -78,7 +76,7 @@ int sched_create(thread_fn_t fn, void *arg) {
         }
     }
     if (idx < 0) {
-        sti();
+        enable_interrupts();
         return -1;
     }
 
@@ -113,7 +111,7 @@ int sched_create(thread_fn_t fn, void *arg) {
 
     t->state = T_RUNNABLE;
 
-    sti();
+    enable_interrupts();
     return idx;
 }
 
@@ -141,18 +139,18 @@ static void sched_yield_now(void) {
 void sched_yield_if_needed(void) {
     if (!g_need_resched) return;
 
-    cli();
+    disable_interrupts();
     if (!g_need_resched) {
-        sti();
+        enable_interrupts();
         return;
     }
     g_need_resched = false;
     sched_yield_now();
-    sti();
+    enable_interrupts();
 }
 
 _Noreturn void sched_exit(void) {
-    cli();
+    disable_interrupts();
 
     if (g_current >= 0) {
         g_threads[g_current].state = T_DEAD;
@@ -161,16 +159,22 @@ _Noreturn void sched_exit(void) {
     // Keep switching to whatever is runnable.
     for (;;) {
         sched_yield_now();
-        __asm__ volatile ("hlt");
+#if defined (__x86_64__)
+        asm ("hlt");
+#elif defined (__aarch64__) || defined (__riscv)
+        asm ("wfi");
+#elif defined (__loongarch64)
+        asm ("idle 0");
+#endif
     }
 }
 
 _Noreturn void sched_start(void) {
-    cli();
+    disable_interrupts();
     serial_println("sched: starting");
     g_need_resched = false;
     sched_yield_now();
-    sti();
+    enable_interrupts();
 
     hcf();
 }

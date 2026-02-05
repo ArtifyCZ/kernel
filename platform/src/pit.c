@@ -3,15 +3,13 @@
 //
 
 #include "pit.h"
+
+#include "io_wrapper.h"
 #include "serial.h"
 #include "scheduler.h"
 
 #define PIT_CH0_DATA  0x40
 #define PIT_CMD       0x43
-
-static inline void outb(uint16_t port, uint8_t val) {
-    __asm__ volatile ("outb %0, %1" : : "a"(val), "Nd"(port));
-}
 
 static volatile uint64_t g_ticks = 0;
 

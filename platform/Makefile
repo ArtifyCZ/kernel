@@ -5,7 +5,7 @@ DEPS=dependencies
 
 
 # Check if the architecture is supported.
-ifeq ($(filter $(ARCH),aarch64 loongarch64 riscv64 x86_64),)
+ifeq ($(filter $(ARCH),aarch64 x86_64),)
     $(error Architecture $(ARCH) not supported)
 endif
 
@@ -22,13 +22,14 @@ PLATFORM_SRC_FILES :=
 
 PLATFORM_SRC_FILES += $(wildcard src/*.c) $(wildcard src/**/*.c)
 
-PLATFORM_NASM_FILES :=
-
-PLATFORM_NASM_FILES += $(wildcard src/*.asm) $(wildcard src/**/*.asm)
+PLATFORM_ASM_FILES :=
+PLATFORM_ASM_FILES += $(wildcard src/*.$(ARCH).asm) $(wildcard src/**/*.$(ARCH).asm)
+PLATFORM_ASM_FILES += $(wildcard src/*.$(ARCH).S) $(wildcard src/**/*.$(ARCH).S)
 
 PLATFORM_OBJS=
 PLATFORM_OBJS += $(patsubst %.c,$(BUILD)/%.o,$(PLATFORM_SRC_FILES))
-PLATFORM_OBJS += $(patsubst %.asm,$(BUILD)/%.o,$(PLATFORM_NASM_FILES))
+PLATFORM_OBJS += $(patsubst %.asm,$(BUILD)/%.o,$(PLATFORM_ASM_FILES))
+PLATFORM_OBJS += $(patsubst %.S,$(BUILD)/%.o,$(PLATFORM_ASM_FILES))
 
 
 INCLUDE_HEADERS=
@@ -40,7 +41,7 @@ INCLUDE_HEADERS += $(DEPS)/freestnd-c-hdrs/include
 CFLAGS :=
 CFLAGS += $(addprefix -I ,$(INCLUDE_HEADERS))
 CFLAGS += -g -O0 -pipe
-CFLAGS += -target $(ARCH)-linux-gnu
+CFLAGS += -target $(ARCH)-none-elf
 CFLAGS += -Wall \
 	-Wextra \
 	-std=gnu11 \
@@ -56,31 +57,34 @@ CFLAGS += -Wall \
 
 
 LDFLAGS :=
-LDFLAGS += -m elf_$(ARCH)
+LDFLAGS += -m aarch64elf
 LDFLAGS += -nostdlib \
 	-static \
 	--gc-sections
 
 
-NASMFLAGS :=
-
 ifeq ($(ARCH),x86_64)
 	NASMFLAGS += -f elf64
+else ifeq ($(ARCH),aarch64)
 else
-	$(error NASM flags not configured for architecture $(ARCH) yet)
+$(error Compilation of assembly not configured for architecture $(ARCH) yet)
 endif
 
 
-$(BUILD)/%.o: %.asm $(BUILD)
-	@mkdir -p $(dir $@)
+$(BUILD)/%.x86_64.o: %.x86_64.asm $(BUILD)
+	(mkdir -p $(dir $@) || true)
 	$(NASM) $(NASMFLAGS) $< -o $@
 
+$(BUILD)/%.aarch64.o: %.aarch64.S $(BUILD)
+	(mkdir -p $(dir $@) || true)
+	$(AARCH64_ELF_AS) $< -o $@
+
 $(BUILD)/%.o: %.c $(BUILD)
-	@mkdir -p $(dir $@)
+	(mkdir -p $(dir $@) || true)
 	$(CC) $(CFLAGS) -c $< -o $@
 
 
-$(BUILD)/libplatform.a: $(DEPS) $(BUILD) $(PLATFORM_OBJS)
+$(BUILD)/libplatform.a: $(BUILD) $(DEPS) $(PLATFORM_OBJS)
 	(rm $(BUILD)/libplatform.a || true)
 	ar rcs $(BUILD)/libplatform.a $(PLATFORM_OBJS)
 

@@ -4,6 +4,7 @@
 
 #include "keyboard.h"
 
+#include "io_wrapper.h"
 #include "stdbool.h"
 #include "stdint.h"
 #include "serial.h"
@@ -39,15 +40,6 @@ bool kbd_scancode_pop(uint8_t *out) {
     *out = kbd_buf[tail];
     kbd_tail = kbd_next(tail);
     return true;
-}
-
-static inline uint8_t inb(uint16_t port) {
-    uint8_t ret;
-    __asm__ volatile ( "inb %w1, %b0"
-        : "=a"(ret)
-        : "Nd"(port)
-        : "memory");
-    return ret;
 }
 
 bool keyboard_read_scancode(uint8_t *out) {

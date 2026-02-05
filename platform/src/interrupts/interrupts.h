@@ -33,6 +33,10 @@ struct stack_frame {
     uint64_t rip, cs, rflags;
 } __attribute__((packed));
 
+void enable_interrupts(void);
+
+void disable_interrupts(void);
+
 __attribute__((used))
 void interrupt_handler(struct stack_frame *frame);
 

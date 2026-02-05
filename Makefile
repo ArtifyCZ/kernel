@@ -1,12 +1,13 @@
 default: help
 
-ARCH=x86_64
-BUILD=build
+ARCH := x86_64
+BUILD := build
 
 
 CC := clang
 LD := ld.lld
 NASM := nasm
+AARCH64_ELF_AS := aarch64-elf-as
 
 
 $(BUILD):
@@ -17,21 +18,20 @@ all: $(BUILD)/kernel.iso
 
 
 LDFLAGS :=
-LDFLAGS += -m elf_$(ARCH)
 LDFLAGS += -nostdlib \
 	-static \
 	-z max-page-size=0x1000 \
 	--gc-sections
-LDFLAGS += -T kernel.ld
+LDFLAGS += -T kernel.$(ARCH).ld
 LDFLAGS += -L $(BUILD)
 LDFLAGS += -l:libplatform.a
 LDFLAGS += -l:libkernel.a
 
 MAKE_PLATFORM := $(MAKE) -C platform
 MAKE_PLATFORM += ARCH="$(ARCH)"
-MAKE_PLATFORM += ARCH="$(ARCH)"
 MAKE_PLATFORM += CC="$(CC)"
 MAKE_PLATFORM += NASM="$(NASM)"
+MAKE_PLATFORM += AARCH64_ELF_AS="$(AARCH64_ELF_AS)"
 MAKE_PLATFORM += LD="$(LD)"
 
 MAKE_KERNEL := $(MAKE) -C kernel
@@ -95,10 +95,10 @@ $(BUILD)/limine/limine:
 
 .PHONY: qemu qemu-debug
 qemu: $(BUILD)/kernel.iso
-	qemu-system-x86_64 -serial stdio -m 256M -cdrom $(BUILD)/kernel.iso
+	qemu-system-$(ARCH) -serial stdio -m 256M -cdrom $(BUILD)/kernel.iso
 
 qemu-debug: $(BUILD)/kernel.iso
-	qemu-system-x86_64 -serial stdio -m 256M -s -S -cdrom $(BUILD)/kernel.iso
+	qemu-system-$(ARCH) -serial stdio -m 256M -s -S -cdrom $(BUILD)/kernel.iso
 
 
 ## Removes all local artifacts

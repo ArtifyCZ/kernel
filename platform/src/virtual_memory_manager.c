@@ -17,17 +17,29 @@ static inline void *phys_to_virt(uint64_t phys) {
 }
 
 static inline uint64_t read_cr3(void) {
-    uint64_t value;
+    uint64_t value = 0;
+#if defined (__x86_64__)
     __asm__ volatile ("mov %%cr3, %0" : "=r"(value) :: "memory");
+#else
+#warning "Not implemented yet"
+#endif
     return value;
 }
 
 static inline void write_cr3(uint64_t value) {
+#if defined (__x86_64__)
     __asm__ volatile ("mov %0, %%cr3" :: "r"(value) : "memory");
+#else
+#warning "Not implemented yet"
+#endif
 }
 
 static inline void invlpg(uint64_t virt) {
+#if defined (__x86_64__)
     __asm__ volatile ("invlpg (%0)" :: "r"(virt) : "memory");
+#else
+#warning "Not implemented yet"
+#endif
 }
 
 static inline bool is_aligned_4k(uint64_t x) {

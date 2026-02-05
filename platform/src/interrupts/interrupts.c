@@ -34,9 +34,33 @@ static bool vectors[IDT_MAX_DESCRIPTORS];
 
 extern void *isr_stub_table[];
 
+void enable_interrupts(void) {
+#if defined (__x86_64__)
+    __asm__ volatile ("sti");
+#else
+#warning "Not implemented yet"
+    // aarch64
+    // msr msr daifset, #15
+#endif
+}
+
+void disable_interrupts(void) {
+#if defined (__x86_64__)
+    __asm__ volatile ("cli");
+#else
+#warning "Not implemented yet"
+    // aarch64
+    // msr msr daifclr, #15
+#endif
+}
+
 static inline uint64_t read_cr2(void) {
-    uint64_t v;
+    uint64_t v = 0x0;
+#if defined (__x86_64__)
     __asm__ volatile ("mov %%cr2, %0" : "=r"(v));
+#else
+#warning "Not implemented yet"
+#endif
     return v;
 }
 
@@ -95,8 +119,12 @@ void interrupt_handler(struct stack_frame *frame) {
 static struct idtr idtr;
 
 void idt_init(void) {
-    __asm__ volatile ("cli"); // disable interrupts during idt initialization
+    disable_interrupts(); // disable interrupts during idt initialization
+#if defined (__x86_64__)
     __asm__ volatile ("mov %%cs, %0" : "=r"(g_kernel_cs));
+#else
+#warning "Not implemented yet"
+#endif
 
     pic_remap(0x20, 0x28);
 
@@ -108,8 +136,12 @@ void idt_init(void) {
         vectors[vector] = true;
     }
 
+#if defined (__x86_64__)
     __asm__ volatile ("lidt %0" : : "m"(idtr)); // load the new IDT
-    __asm__ volatile ("sti"); // enable interrupts, initialization is complete
+#else
+#warning "Not implemented yet"
+#endif
+    enable_interrupts(); // enable interrupts, initialization is complete
 
     serial_println("Initialized interrupts");
 }

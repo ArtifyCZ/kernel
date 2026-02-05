@@ -4,11 +4,9 @@
 
 #include "pic.h"
 
-#define PIC_EOI		0x20		/* End-of-interrupt command code */
+#include "io_wrapper.h"
 
-static void outb(uint16_t port, uint8_t val) {
-    __asm__ volatile ("outb %0, %1" : : "a"(val), "Nd"(port));
-}
+#define PIC_EOI		0x20		/* End-of-interrupt command code */
 
 static inline void io_wait(void) {
     outb(0x80, 0);
