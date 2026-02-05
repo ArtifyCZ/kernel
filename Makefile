@@ -67,7 +67,7 @@ $(BUILD)/kernel.elf: $(BUILD) $(BUILD)/libkernel.a $(BUILD)/libplatform.a
 	$(LD) $(LDFLAGS) -o $(BUILD)/kernel.elf
 
 
-$(BUILD)/kernel.iso: $(BUILD)/kernel.elf $(BUILD)/limine/limine $(BUILD)
+$(BUILD)/kernel.$(ARCH).iso: $(BUILD)/kernel.elf $(BUILD)/limine/limine $(BUILD)
 	mkdir -p $(BUILD)/isofiles/boot/limine/
 	cp -v limine.conf $(BUILD)/isofiles/boot/limine/
 	mkdir -p $(BUILD)/isofiles/EFI/BOOT
@@ -82,8 +82,8 @@ $(BUILD)/kernel.iso: $(BUILD)/kernel.elf $(BUILD)/limine/limine $(BUILD)
 		-no-emul-boot -boot-load-size 4 -boot-info-table -hfsplus \
 		-apm-block-size 2048 --efi-boot boot/limine/limine-uefi-cd.bin \
 		-efi-boot-part --efi-boot-image --protective-msdos-label \
-		$(BUILD)/isofiles -o $(BUILD)/kernel.iso
-	$(BUILD)/limine/limine bios-install $(BUILD)/kernel.iso
+		$(BUILD)/isofiles -o $(BUILD)/kernel.$(ARCH).iso
+	$(BUILD)/limine/limine bios-install $(BUILD)/kernel.$(ARCH).iso
 	rm -rf $(BUILD)/isofiles
 
 
@@ -92,13 +92,14 @@ $(BUILD)/limine/limine:
 	git clone https://codeberg.org/Limine/Limine.git $(BUILD)/limine --branch=v10.x-binary --depth=1
 	$(MAKE_LIMINE)
 
+QEMUFLAGS += -serial stdio -cdrom $(BUILD)/kernel.$(ARCH).iso
 
 .PHONY: qemu qemu-debug
-qemu: $(BUILD)/kernel.iso
-	qemu-system-$(ARCH) -serial stdio -m 256M -cdrom $(BUILD)/kernel.iso
+qemu: $(BUILD)/kernel.$(ARCH).iso
+	qemu-system-$(ARCH) $(QEMUFLAGS)
 
-qemu-debug: $(BUILD)/kernel.iso
-	qemu-system-$(ARCH) -serial stdio -m 256M -s -S -cdrom $(BUILD)/kernel.iso
+qemu-debug: $(BUILD)/kernel.$(ARCH).iso
+	qemu-system-$(ARCH) $(QEMUFLAGS)
 
 
 ## Removes all local artifacts
