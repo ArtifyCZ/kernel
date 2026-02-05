@@ -1,8 +1,12 @@
-RUST_TARGET := x86_64-unknown-none
+RUST_TARGET := $(ARCH)-unknown-none
+
+CARGOFLAGS :=
+CARGOFLAGS += --target $(RUST_TARGET)
+CARGOFLAGS += --profile dev
 
 .PHONY: build-dev
 build-dev:
-	cargo build --target $(RUST_TARGET) --profile dev
+	cargo build $(CARGOFLAGS)
 
 .PHONY: clean
 clean:

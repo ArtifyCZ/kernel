@@ -1,13 +1,12 @@
 default: help
 
+ARCH=x86_64
 BUILD=build
 
-# Toolchain for building the 'limine' executable for the host.
-HOST_CC := clang
-HOST_CFLAGS := -g -O2 -pipe
-HOST_CPPFLAGS :=
-HOST_LDFLAGS :=
-HOST_LIBS :=
+
+CC := clang
+LD := ld.lld
+NASM := nasm
 
 
 $(BUILD):
@@ -17,13 +16,8 @@ $(BUILD):
 all: $(BUILD)/kernel.iso
 
 
-CC := clang
-
-
-LD := ld.lld
-
 LDFLAGS :=
-LDFLAGS += -m elf_x86_64
+LDFLAGS += -m elf_$(ARCH)
 LDFLAGS += -nostdlib \
 	-static \
 	-z max-page-size=0x1000 \
@@ -33,25 +27,41 @@ LDFLAGS += -L $(BUILD)
 LDFLAGS += -l:libplatform.a
 LDFLAGS += -l:libkernel.a
 
+MAKE_PLATFORM := $(MAKE) -C platform
+MAKE_PLATFORM += ARCH="$(ARCH)"
+MAKE_PLATFORM += ARCH="$(ARCH)"
+MAKE_PLATFORM += CC="$(CC)"
+MAKE_PLATFORM += NASM="$(NASM)"
+MAKE_PLATFORM += LD="$(LD)"
+
+MAKE_KERNEL := $(MAKE) -C kernel
+MAKE_KERNEL += ARCH="$(ARCH)"
+
+MAKE_LIMINE := $(MAKE) -C $(BUILD)/limine
+MAKE_LIMINE += CC="$(CC)"
+MAKE_LIMINE += CFLAGS="-g -O2 -pipe"
+MAKE_LIMINE += CPPFLAGS=""
+MAKE_LIMINE += LDFLAGS=""
+MAKE_LIMINE += LIBS=""
 
 .PHONY: $(BUILD)/libplatform.a
 $(BUILD)/libplatform.a: $(BUILD)
-	$(MAKE) -C platform all
+	$(MAKE_PLATFORM) all
 	cp -v platform/build/libplatform.a $(BUILD)/
 
 .PHONY: $(BUILD)/libkernel.a
 $(BUILD)/libkernel.a: $(BUILD)
-	$(MAKE) -C kernel build-dev
-	cp -v kernel/target/x86_64-unknown-none/debug/libkernel.a $(BUILD)/
+	$(MAKE_KERNEL) build-dev
+	cp -v kernel/target/$(ARCH)-unknown-none/debug/libkernel.a $(BUILD)/
 
 
 .PHONY: platform/clean
 platform/clean:
-	$(MAKE) -C platform clean
+	$(MAKE_PLATFORM) clean
 
 .PHONY: kernel/clean
 kernel/clean:
-	$(MAKE) -C kernel clean
+	$(MAKE_KERNEL) clean
 
 $(BUILD)/kernel.elf: $(BUILD) $(BUILD)/libkernel.a $(BUILD)/libplatform.a
 	$(LD) $(LDFLAGS) -o $(BUILD)/kernel.elf
@@ -80,12 +90,7 @@ $(BUILD)/kernel.iso: $(BUILD)/kernel.elf $(BUILD)/limine/limine $(BUILD)
 $(BUILD)/limine/limine:
 	rm -rf $(BUILD)/limine
 	git clone https://codeberg.org/Limine/Limine.git $(BUILD)/limine --branch=v10.x-binary --depth=1
-	$(MAKE) -C $(BUILD)/limine \
-		CC="$(HOST_CC)" \
-		CFLAGS="$(HOST_CFLAGS)" \
-		CPPFLAGS="$(HOST_CPPFLAGS)" \
-		LDFLAGS="$(HOST_LDFLAGS)" \
-		LIBS="$(HOST_LIBS)"
+	$(MAKE_LIMINE)
 
 
 .PHONY: qemu qemu-debug

@@ -1,12 +1,19 @@
-default: help
-
 BUILD=build
 DEPS=dependencies
 
 
+
+
+# Check if the architecture is supported.
+ifeq ($(filter $(ARCH),aarch64 loongarch64 riscv64 x86_64),)
+    $(error Architecture $(ARCH) not supported)
+endif
+
+
+default: help
+
 $(BUILD):
 	mkdir -p $(BUILD)
-
 
 all: $(BUILD)/libplatform.a
 
@@ -32,7 +39,8 @@ INCLUDE_HEADERS += $(DEPS)/freestnd-c-hdrs/include
 
 CFLAGS :=
 CFLAGS += $(addprefix -I ,$(INCLUDE_HEADERS))
-CFLAGS += -g -O0 -pipe -target x86_64-linux-gnu
+CFLAGS += -g -O0 -pipe
+CFLAGS += -target $(ARCH)-linux-gnu
 CFLAGS += -Wall \
 	-Wextra \
 	-std=gnu11 \
@@ -48,15 +56,24 @@ CFLAGS += -Wall \
 
 
 LDFLAGS :=
-LDFLAGS += -m elf_x86_64
+LDFLAGS += -m elf_$(ARCH)
 LDFLAGS += -nostdlib \
 	-static \
 	--gc-sections
 
 
+NASMFLAGS :=
+
+ifeq ($(ARCH),x86_64)
+	NASMFLAGS += -f elf64
+else
+	$(error NASM flags not configured for architecture $(ARCH) yet)
+endif
+
+
 $(BUILD)/%.o: %.asm $(BUILD)
 	@mkdir -p $(dir $@)
-	nasm -felf64 $< -o $@
+	$(NASM) $(NASMFLAGS) $< -o $@
 
 $(BUILD)/%.o: %.c $(BUILD)
 	@mkdir -p $(dir $@)
