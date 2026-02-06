@@ -19,7 +19,7 @@
 // base revision described by the Limine boot protocol specification.
 // See specification for further info.
 
-__attribute__((used, section(".limine_requests")))
+__attribute__((used, section(".limine_requests"), aligned(8)))
 static volatile uint64_t limine_base_revision[] = LIMINE_BASE_REVISION(4);
 
 // The Limine requests can be placed anywhere, but it is important that
@@ -27,25 +27,31 @@ static volatile uint64_t limine_base_revision[] = LIMINE_BASE_REVISION(4);
 // be made volatile or equivalent, _and_ they should be accessed at least
 // once or marked as used with the "used" attribute as done here.
 
-__attribute__((used, section(".limine_requests")))
+__attribute__((used, section(".limine_requests"), aligned(8)))
 static volatile struct limine_framebuffer_request framebuffer_request = {
     .id = LIMINE_FRAMEBUFFER_REQUEST_ID,
-    .revision = 0
+    .revision = 2
 };
 
-__attribute__((used, section(".limine_requests")))
+__attribute__((used, section(".limine_requests"), aligned(8)))
 static volatile struct limine_memmap_request memmap_request = {
     .id = LIMINE_MEMMAP_REQUEST_ID,
     .revision = 0
 };
 
-__attribute__((used, section(".limine_requests")))
+__attribute__((used, section(".limine_requests"), aligned(8)))
 static volatile struct limine_hhdm_request hhdm_request = {
     .id = LIMINE_HHDM_REQUEST_ID,
     .revision = 0
 };
 
-__attribute__((used, section(".limine_requests")))
+__attribute__((used, section(".limine_requests"), aligned(8)))
+static volatile struct limine_executable_address_request kernel_address_request = {
+    .id = LIMINE_EXECUTABLE_ADDRESS_REQUEST_ID,
+    .revision = 0
+};
+
+__attribute__((used, section(".limine_requests"), aligned(8)))
 static volatile struct limine_module_request module_request = {
     .id = LIMINE_MODULE_REQUEST_ID,
     .revision = 0
@@ -55,10 +61,10 @@ static volatile struct limine_module_request module_request = {
 // Finally, define the start and end markers for the Limine requests.
 // These can also be moved anywhere, to any .c file, as seen fit.
 
-__attribute__((used, section(".limine_requests_start")))
+__attribute__((used, section(".limine_requests_start"), aligned(8)))
 static volatile uint64_t limine_requests_start_marker[] = LIMINE_REQUESTS_START_MARKER;
 
-__attribute__((used, section(".limine_requests_end")))
+__attribute__((used, section(".limine_requests_end"), aligned(8)))
 static volatile uint64_t limine_requests_end_marker[] = LIMINE_REQUESTS_END_MARKER;
 
 // Halt and catch fire function.
@@ -158,6 +164,19 @@ __attribute__((used)) void boot(void) {
         || framebuffer_request.response->framebuffer_count < 1) {
         hcf();
     }
+
+#if defined (__aarch64__)
+    struct limine_framebuffer *fb = framebuffer_request.response->framebuffers[0];
+    for (size_t x = 50; x < 100; x++) {
+        for (size_t y = 50; y < 100; y++) {
+            volatile uint32_t *fb_ptr = fb->address;
+            fb_ptr += x + y * (fb->pitch / 4);
+            fb_ptr[0] = 0xFFAAAA;
+        }
+    }
+
+    hcf();
+#endif
 
     serial_init();
 

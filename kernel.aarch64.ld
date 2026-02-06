@@ -9,10 +9,10 @@ ENTRY(boot)
 /* process. */
 PHDRS
 {
-    limine_requests PT_LOAD;
-    text PT_LOAD;
-    rodata PT_LOAD;
-    data PT_LOAD;
+    limine_requests PT_LOAD FLAGS(6); /* RW */
+    text            PT_LOAD FLAGS(5); /* R E */
+    rodata          PT_LOAD FLAGS(4); /* R */
+    data            PT_LOAD FLAGS(6); /* RW */
 }
 
 SECTIONS
@@ -24,9 +24,12 @@ SECTIONS
     . = 0xffffffff80000000;
 
     /* Define a section to contain the Limine requests and assign it to its own PHDR */
-    .limine_requests : {
+    .limine_requests : ALIGN(8) {
+        . = ALIGN(8);
         KEEP(*(.limine_requests_start))
+        . = ALIGN(8);
         KEEP(*(.limine_requests))
+        . = ALIGN(8);
         KEEP(*(.limine_requests_end))
     } :limine_requests
 

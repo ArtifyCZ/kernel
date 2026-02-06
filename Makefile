@@ -28,6 +28,7 @@ LDFLAGS :=
 LDFLAGS += -nostdlib \
 	-static \
 	-z max-page-size=0x1000 \
+	--no-dynamic-linker \
 	--gc-sections
 LDFLAGS += -T kernel.$(ARCH).ld
 LDFLAGS += -L $(BUILD)
@@ -107,14 +108,14 @@ QEMU_IMAGE := $(BUILD)/kernel.$(ARCH).iso
 QEMUFLAGS += -cdrom $(QEMU_IMAGE)
 
 else ifeq ($(ARCH),aarch64)
-QEMU += -M virt
+QEMU += -M virt,highmem=on
 QEMU_IMAGE := $(BUILD)/kernel.aarch64.img
 
 QEMUFLAGS += -cpu cortex-a72 -m 2G
 QEMUFLAGS += -bios /opt/homebrew/opt/qemu/share/qemu/edk2-aarch64-code.fd
 QEMUFLAGS += -drive file=$(QEMU_IMAGE),if=none,format=raw,id=hd0,readonly=on
 QEMUFLAGS += -device virtio-blk-device,drive=hd0
-QEMUFLAGS += -device virtio-gpu-pci
+QEMUFLAGS += -device ramfb # TODO: make it work with virtio-gpu-pci and replace the ramfb
 QEMUFLAGS += -device qemu-xhci -device usb-kbd
 
 else
