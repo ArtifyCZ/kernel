@@ -8,7 +8,7 @@
 #include "serial.h"
 #include "stdbool.h"
 #include "terminal.h"
-#include "interrupts/interrupts.h"
+#include "interrupts.h"
 
 #define MAX_THREADS  8
 #define STACK_SIZE   (16 * 1024)

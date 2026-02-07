@@ -5,6 +5,7 @@ endif
 
 platform_dir := $(realpath $(call get_current_dir))
 platform_rel_dir := $(call relative_path_from_srctree,$(platform_dir))
+platform_inc_dir := $(platform_dir)/include
 platform_src_dir := $(platform_dir)/src
 platform_obj_build_dir := $(BUILD)/$(call relative_path_from_srctree,$(platform_dir))/objs_$(ARCH)
 
@@ -22,7 +23,7 @@ PLATFORM_OBJS += $(patsubst $(platform_src_dir)/%.$(ARCH).asm,$(platform_obj_bui
 PLATFORM_OBJS += $(patsubst $(platform_src_dir)/%.$(ARCH).S,$(platform_obj_build_dir)/%.$(ARCH).o,$(PLATFORM_ASM_FILES))
 
 
-INCLUDE_HEADERS=
+INCLUDE_HEADERS := $(platform_inc_dir)
 
 INCLUDE_HEADERS += $(DEPS)/limine-protocol/include
 INCLUDE_HEADERS += $(DEPS)/freestnd-c-hdrs/include

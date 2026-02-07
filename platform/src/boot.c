@@ -2,7 +2,7 @@
 #include <stddef.h>
 #include <stdbool.h>
 #include <limine.h>
-#include "interrupts/interrupts.h"
+#include "interrupts.h"
 #include "boot.h"
 
 #include "keyboard.h"
