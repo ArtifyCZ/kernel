@@ -21,7 +21,14 @@ $(BUILD):
 
 
 .PHONY: all
+
+ifeq ($(ARCH),x86_64)
 all:: $(BUILD)/kernel.$(ARCH).iso
+
+else ifeq ($(ARCH),aarch64)
+all:: $(BUILD)/kernel.$(ARCH).img
+
+endif
 
 
 LDFLAGS :=
