@@ -5,7 +5,7 @@
 #include "pit.h"
 
 #include "io_wrapper.h"
-#include "serial.h"
+#include "drivers/serial.h"
 #include "scheduler.h"
 
 #define PIT_CH0_DATA  0x40

@@ -11,7 +11,7 @@
 #include "pit.h"
 #include "psf.h"
 #include "scheduler.h"
-#include "serial.h"
+#include "drivers/serial.h"
 #include "terminal.h"
 #include "virtual_memory_manager.h"
 
@@ -175,10 +175,18 @@ __attribute__((used)) void boot(void) {
         }
     }
 
-    hcf();
 #endif
 
-    serial_init();
+    uintptr_t serial_device_base;
+#if defined (__x86_64__)
+    serial_device_base = 0x3f8;
+#elif defined (__aarch64__)
+    serial_device_base = 0x9000000;
+#else
+#error "Not implemented yet"
+#endif
+    serial_init(serial_device_base);
+    serial_println("Booting...");
 
     if (memmap_request.response == NULL) {
         serial_println("Limine memmap missing; cannot init PMM");

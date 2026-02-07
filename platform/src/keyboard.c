@@ -7,7 +7,7 @@
 #include "io_wrapper.h"
 #include "stdbool.h"
 #include "stdint.h"
-#include "serial.h"
+#include "drivers/serial.h"
 
 #define KEYBOARD_COMMAND_PORT 0x64
 #define KEYBOARD_DATA_PORT 0x60

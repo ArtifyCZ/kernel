@@ -4,7 +4,7 @@
 
 #include "modules.h"
 
-#include "serial.h"
+#include "drivers/serial.h"
 #include "stdbool.h"
 #include "stddef.h"
 

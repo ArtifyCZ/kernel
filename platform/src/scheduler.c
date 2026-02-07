@@ -5,7 +5,7 @@
 #include "scheduler.h"
 
 #include "boot.h"
-#include "serial.h"
+#include "drivers/serial.h"
 #include "stdbool.h"
 #include "terminal.h"
 #include "interrupts.h"

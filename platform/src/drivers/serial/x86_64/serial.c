@@ -1,8 +1,5 @@
-//
-// Created by artify on 2/1/26.
-//
+#include "drivers/serial.h"
 
-#include "serial.h"
 #include <stdint.h>
 #include <stddef.h>
 
@@ -10,7 +7,10 @@
 
 #define PORT 0x3f8
 
-int serial_init() {
+/**
+ * @TODO: replace PORT constant with the base parameter
+ */
+int serial_init(uintptr_t base) {
     outb(PORT + 1, 0x00);    // Disable all interrupts
     outb(PORT + 3, 0x80);    // Enable DLAB (set baud rate divisor)
     outb(PORT + 0, 0x03);    // Set divisor to 3 (lo byte) 38400 baud

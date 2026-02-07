@@ -6,7 +6,7 @@
 #include <stdbool.h>
 
 #include "physical_memory_manager.h"
-#include "serial.h"
+#include "../include/drivers/serial.h"
 
 #define PTE_ADDR_MASK 0x000FFFFFFFFFF000ull
 

@@ -11,7 +11,13 @@ platform_obj_build_dir := $(BUILD)/$(call relative_path_from_srctree,$(platform_
 
 PLATFORM_SRC_FILES :=
 
-PLATFORM_SRC_FILES += $(wildcard $(platform_dir)/src/*.c) $(wildcard $(platform_dir)/src/**/*.c)
+# Common files
+PLATFORM_SRC_FILES += $(wildcard $(platform_src_dir)/*.c)
+PLATFORM_SRC_FILES += $(platform_src_dir)/interrupts/interrupts.c # Temporarily before directory structure change
+
+# Serial driver files
+PLATFORM_SRC_FILES += $(wildcard $(platform_src_dir)/drivers/serial/$(ARCH)/*.c)
+PLATFORM_SRC_FILES += $(wildcard $(platform_src_dir)/drivers/serial/$(ARCH)/**.c)
 
 PLATFORM_ASM_FILES :=
 PLATFORM_ASM_FILES += $(wildcard $(platform_src_dir)/*.$(ARCH).asm) $(wildcard $(platform_src_dir)/**/*.$(ARCH).asm)
