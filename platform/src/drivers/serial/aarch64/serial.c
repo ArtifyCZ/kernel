@@ -2,36 +2,44 @@
 #include <stdint.h>
 #include <stddef.h>
 
-#include "dirty_vmm_priv.h"
+// Include the new agnostic VMM header
+#include "virtual_memory_manager.h"
+
+// This should ideally be defined in a "memory_map.h" later
+#define KERNEL_VIRTUAL_DEVICE_BASE 0xFFFFC00000000000ULL
 
 // Private register offsets for the PL011
-// The division by 4 is to index correctly, as C multiplies by the size of the variable pointed on
-#define UART_DR    (0x00 / 4)     // Data Register
-#define UART_FR    (0x18 / 4)     // Flag Register
-#define UART_IBRD  (0x24 / 4)     // Integer Baud Rate
-#define UART_FBRD  (0x28 / 4)     // Fractional Baud Rate
-#define UART_LCRH  (0x2C / 4)     // Line Control Register
-#define UART_CR    (0x30 / 4)     // Control Register
+#define UART_DR    (0x00 / 4)
+#define UART_FR    (0x18 / 4)
+#define UART_IBRD  (0x24 / 4)
+#define UART_FBRD  (0x28 / 4)
+#define UART_LCRH  (0x2C / 4)
+#define UART_CR    (0x30 / 4)
 
-// Flag register bits
-#define FR_TXFF    (1 << 5) // Transmit FIFO full
-#define FR_RXFE    (1 << 4) // Receive FIFO empty
+#define FR_TXFF    (1 << 5)
 
 static volatile uint32_t *uart_base = NULL;
 
-int serial_init(uintptr_t base) {
-    uart_base = (volatile uint32_t *)(base + 0xFFFFC00000000000); // adding heap base address
+int serial_init(uintptr_t physical_base) {
+    // 1. Calculate the virtual address where we want the UART to live
+    uintptr_t virtual_base = KERNEL_VIRTUAL_DEVICE_BASE;
+    uart_base = (volatile uint32_t *)virtual_base;
 
-    init_mair();
-    dirty_bootstrap_map_uart((uintptr_t) uart_base, base);
+    // We use VMM_FLAG_DEVICE to ensure the MMU treats this as MMIO (no caching/reordering).
+    bool success = vmm_map_page(
+        &g_kernel_context,
+        virtual_base,
+        physical_base,
+        VMM_FLAG_PRESENT | VMM_FLAG_WRITE | VMM_FLAG_DEVICE
+    );
 
-    // Test read before write
-    uint32_t test = uart_base[UART_FR];
-    (void)test;
+    if (!success) {
+        // If mapping fails, we can't initialize the serial port.
+        // On a real kernel, you might hang or panic here.
+        return -1;
+    }
 
-    // For early boot, Limine/Firmware usually initializes the UART.
-    // If you need a hard reset, you'd disable UART, set baud, then re-enable.
-    // Minimal "ensure enabled" sequence:
+    // 3. Hardware Initialization (PL011 specific)
     uart_base[UART_CR] = 0;               // Disable UART
     uart_base[UART_LCRH] = (3 << 5);      // 8 bits, no parity, 1 stop bit (8N1)
     uart_base[UART_CR] = (1 << 0) | (1 << 8) | (1 << 9); // Enable UART, TX, RX
@@ -41,27 +49,22 @@ int serial_init(uintptr_t base) {
 
 static int is_transmit_empty() {
     if (!uart_base) return 0;
-    // Check if the Transmit FIFO is NOT full
     return !(uart_base[UART_FR] & FR_TXFF);
 }
 
 static void write_serial(char a) {
     if (!uart_base) return;
 
-    // Carriage return handling: if we send \n, many terminals also need \r
     if (a == '\n') {
         write_serial('\r');
     }
 
-    // Wait until there is space in the FIFO
     while (!is_transmit_empty()) {
-        __asm__ volatile("yield"); // Hint to CPU we are in a spin-loop
+        __asm__ volatile("yield");
     }
 
     uart_base[UART_DR] = (uint32_t)a;
 }
-
-// --- Your existing print logic remains the same ---
 
 void serial_print(const char *message) {
     if (!message) return;

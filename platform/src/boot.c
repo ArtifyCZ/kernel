@@ -34,6 +34,13 @@ static volatile struct limine_framebuffer_request framebuffer_request = {
 };
 
 __attribute__((used, section(".limine_requests"), aligned(8)))
+static volatile struct limine_stack_size_request stack_size_request = {
+    .id = LIMINE_STACK_SIZE_REQUEST_ID,
+    .stack_size = 0x020000, // 32 kB
+    .revision = 0
+};
+
+__attribute__((used, section(".limine_requests"), aligned(8)))
 static volatile struct limine_memmap_request memmap_request = {
     .id = LIMINE_MEMMAP_REQUEST_ID,
     .revision = 0
@@ -88,13 +95,13 @@ void try_virtual_mapping(void) {
         serial_println("Cannot allocate physical frame for virtual mapping!");
         return;
     }
-    const uintptr_t virtual_address = 0xFFFFC00000000000;
-    if (vmm_translate(virtual_address) != 0x0) {
+    const uintptr_t virtual_address = 0xFFFFD00000000000;
+    if (vmm_translate(&g_kernel_context, virtual_address) != 0x0) {
         serial_println("Cannot map virtual address 0xFFFFC00000000000, address already mapped!");
         return;
     }
 
-    if (!vmm_map_page(virtual_address, physical_frame, VMM_PTE_W)) {
+    if (!vmm_map_page(&g_kernel_context, virtual_address, physical_frame, VMM_FLAG_PRESENT | VMM_FLAG_WRITE)) {
         serial_println("Cannot map virtual address 0xFFFFC00000000000!");
         return;
     }
@@ -110,12 +117,12 @@ void try_virtual_mapping(void) {
 
     if (ptr[0] != 0x1122334455667788ull || ptr[1] != 0xA5A5A5A5A5A5A5A5ull) {
         serial_println("VMM test: readback mismatch");
-        (void) vmm_unmap_page(virtual_address);
+        (void) vmm_unmap_page(&g_kernel_context, virtual_address);
         pmm_free_frame(physical_frame);
         return;
     }
 
-    (void) vmm_unmap_page(virtual_address);
+    (void) vmm_unmap_page(&g_kernel_context, virtual_address);
     pmm_free_frame(physical_frame);
 
     serial_println("VMM test: success!");
@@ -174,6 +181,8 @@ __attribute__((used)) void boot(void) {
     }
     g_hhdm_offset = hhdm_request.response->offset;
 
+    vmm_init(hhdm_request.response->offset);
+
 #if defined (__aarch64__)
     struct limine_framebuffer *fb = framebuffer_request.response->framebuffers[0];
     for (size_t x = 50; x < 100; x++) {
@@ -206,8 +215,6 @@ __attribute__((used)) void boot(void) {
         serial_println("Limine HHDM missing; cannot init VMM");
         hcf();
     }
-
-    vmm_init(hhdm_request.response->offset);
 
     try_virtual_mapping();
 

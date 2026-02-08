@@ -15,6 +15,9 @@ PLATFORM_SRC_FILES :=
 PLATFORM_SRC_FILES += $(wildcard $(platform_src_dir)/*.c)
 PLATFORM_SRC_FILES += $(platform_src_dir)/interrupts/interrupts.c # Temporarily before directory structure change
 
+# Arch-specific files
+PLATFORM_SRC_FILES += $(wildcard $(platform_src_dir)/arch/$(ARCH)/*.c)
+
 # Serial driver files
 PLATFORM_SRC_FILES += $(wildcard $(platform_src_dir)/drivers/serial/$(ARCH)/*.c)
 PLATFORM_SRC_FILES += $(wildcard $(platform_src_dir)/drivers/serial/$(ARCH)/**.c)
@@ -46,6 +49,7 @@ CFLAGS += -Wall \
 	-ffreestanding \
 	-fno-stack-protector \
 	-fno-stack-check \
+	-mgeneral-regs-only \
 	-mno-red-zone \
 	-fno-lto \
 	-fno-PIC \
