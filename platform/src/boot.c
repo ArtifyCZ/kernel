@@ -57,6 +57,8 @@ static volatile struct limine_module_request module_request = {
     .revision = 0
 };
 
+uint64_t g_hhdm_offset;
+
 
 // Finally, define the start and end markers for the Limine requests.
 // These can also be moved anywhere, to any .c file, as seen fit.
@@ -165,6 +167,13 @@ __attribute__((used)) void boot(void) {
         hcf();
     }
 
+    pmm_init(memmap_request.response);
+
+    if (hhdm_request.response == NULL) {
+        hcf();
+    }
+    g_hhdm_offset = hhdm_request.response->offset;
+
 #if defined (__aarch64__)
     struct limine_framebuffer *fb = framebuffer_request.response->framebuffers[0];
     for (size_t x = 50; x < 100; x++) {
@@ -192,8 +201,6 @@ __attribute__((used)) void boot(void) {
         serial_println("Limine memmap missing; cannot init PMM");
         hcf();
     }
-
-    pmm_init(memmap_request.response);
 
     if (hhdm_request.response == NULL) {
         serial_println("Limine HHDM missing; cannot init VMM");
