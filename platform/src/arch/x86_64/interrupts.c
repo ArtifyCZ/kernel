@@ -1,0 +1,100 @@
+#include "interrupts.h"
+#include "cpu_interrupts.h"
+
+#include <stdint.h>
+
+#include "boot.h"
+#include "io_wrapper.h"
+#include "drivers/serial.h"
+
+// The IDT structure
+struct idt_entry {
+    uint16_t isr_low;
+    uint16_t kernel_cs;
+    uint8_t  ist;
+    uint8_t  attributes;
+    uint16_t isr_mid;
+    uint32_t isr_high;
+    uint32_t reserved;
+} __attribute__((packed));
+
+struct idt_ptr {
+    uint16_t limit;
+    uint64_t base;
+} __attribute__((packed));
+
+static struct idt_entry idt[256];
+static irq_handler_t handlers[256];
+static void* handler_priv[256];
+
+void interrupts_init(void) {
+    // This table must be defined in your NASM file (see below)
+    extern uint64_t interrupt_stubs[];
+
+    for (int i = 0; i < 256; i++) {
+        uint64_t isr = interrupt_stubs[i];
+
+        idt[i].isr_low    = (uint16_t)(isr & 0xFFFF);
+        idt[i].kernel_cs  = 0x28; // Standard Limine 64-bit Code Segment
+        idt[i].ist        = 0;    // No specific stack switching
+        idt[i].attributes = 0x8E; // Present, Ring 0, Interrupt Gate
+        idt[i].isr_mid    = (uint16_t)((isr >> 16) & 0xFFFF);
+        idt[i].isr_high   = (uint32_t)((isr >> 32) & 0xFFFFFFFF);
+        idt[i].reserved   = 0;
+    }
+
+    struct idt_ptr ptr = {
+        .limit = sizeof(idt) - 1,
+        .base = (uint64_t)&idt
+    };
+
+    __asm__ volatile("lidt %0" : : "m"(ptr));
+
+    interrupts_enable();
+}
+
+void interrupts_enable(void) {
+    __asm__ volatile("sti");
+}
+
+void interrupts_disable(void) {
+    __asm__ volatile("cli");
+}
+
+bool interrupts_register_handler(uint32_t irq, irq_handler_t handler, void *priv) {
+    // Note: On x86, hardware IRQs are usually remapped to 32-255
+    uint32_t vector = irq + 32;
+    if (vector > 255) return false;
+
+    handlers[vector] = handler;
+    handler_priv[vector] = priv;
+    return true;
+}
+
+// The C dispatcher called from NASM
+void x86_64_interrupt_dispatcher(struct interrupt_frame *frame) {
+    if (frame->error_code != 0 || frame->interrupt_number < 0x20) { // non-zero error code and/or exceptions
+        serial_print("Interrupt: ");
+        serial_print_hex_u64(frame->interrupt_number);
+        serial_println("");
+        serial_print("Error code received: ");
+        serial_print_hex_u64(frame->error_code);
+        serial_println("");
+        hcf();
+    }
+
+    if (handlers[frame->interrupt_number]) {
+        handlers[frame->interrupt_number](frame, handler_priv[frame->interrupt_number]);
+    } else {
+        serial_print("Unhandled interrupt: ");
+        serial_print_hex_u64(frame->interrupt_number);
+        serial_println("");
+    }
+
+    if (frame->interrupt_number >= 32 && frame->interrupt_number <= 47) {
+        if (frame->interrupt_number >= 40) {
+            outb(0xA0, 0x20); // Send EOI to Slave PIC
+        }
+        outb(0x20, 0x20);     // Send EOI to Master PIC
+    }
+}

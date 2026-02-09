@@ -8,11 +8,12 @@
 #include "keyboard.h"
 #include "modules.h"
 #include "physical_memory_manager.h"
-#include "pit.h"
 #include "psf.h"
 #include "scheduler.h"
 #include "drivers/serial.h"
 #include "terminal.h"
+#include "ticker.h"
+#include "timer.h"
 #include "virtual_memory_manager.h"
 
 // Set the base revision to 4, this is recommended as this is the latest
@@ -159,9 +160,6 @@ static void thread_keyboard(void *arg) {
     }
 }
 
-// The following will be our kernel's entry point.
-// If renaming kmain() to something else, make sure to change the
-// linker script accordingly.
 __attribute__((used)) void boot(void) {
     // Ensure the bootloader actually understands our base revision (see spec).
     if (LIMINE_BASE_REVISION_SUPPORTED(limine_base_revision) == false) {
@@ -218,13 +216,15 @@ __attribute__((used)) void boot(void) {
 
     try_virtual_mapping();
 
-    idt_init();
+    serial_println("Initializing interrupts...");
+    interrupts_init();
+    serial_println("Interrupts initialized!");
 
-    serial_println("Trying to invoke an interrupt");
+    serial_println("Trying to invoke an interrupt (syscall)");
 #if defined (__x86_64__)
-    __asm__ volatile ("int $0x0");
+    __asm__ volatile ("int $0x80");
 #elif defined (__aarch64__) || defined (__riscv)
-    asm ("svc 0");
+    __asm__ volatile ("svc 0");
 #else
 #error Architecture not supported
 #endif
@@ -247,16 +247,26 @@ __attribute__((used)) void boot(void) {
 
     terminal_println("Hello world!");
 
-    sched_init();
+    // sched_init();
 
-    (void)sched_create(thread_keyboard, NULL);
-    (void)sched_create(thread_heartbeat, NULL);
+    // (void)sched_create(thread_keyboard, NULL);
+    // (void)sched_create(thread_heartbeat, NULL);
 
-    pit_init(100);
+    serial_println("Initializing timer...");
+    timer_init(100);
+    serial_println("Timer initialized!");
 
-    sched_start();
+    serial_println("Enabling interrupts...");
+    interrupts_enable();
+    serial_println("Interrupts enabled!");
 
-    kernel_main();
+    serial_println("Enabling ticker...");
+    ticker_init();
+    serial_println("Ticker enabled!");
+
+    // sched_start();
+
+    // kernel_main();
 
     // We're done, just hang...
     hcf();

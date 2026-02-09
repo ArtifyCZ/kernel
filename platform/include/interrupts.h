@@ -1,59 +1,47 @@
-//
-// Created by artify on 2/1/26.
-//
+#pragma once
 
-#ifndef KERNEL_2026_01_31_INTERRUPTS_H
-#define KERNEL_2026_01_31_INTERRUPTS_H
+#include <stdint.h>
+#include <stdbool.h>
 
+// Represents the CPU state saved during an interrupt.
+// This will be defined per-architecture in a separate header.
+struct interrupt_frame;
 
-#include "stdint.h"
+// Callback signature for an interrupt handler.
+// Returns true if the interrupt was handled.
+typedef bool (*irq_handler_t)(struct interrupt_frame *frame, void *priv);
 
-void idt_init(void);
+// High-level interrupt types
+typedef enum {
+    IRQ_TYPE_EDGE_RISING,
+    IRQ_TYPE_EDGE_FALLING,
+    IRQ_TYPE_LEVEL_HIGH,
+    IRQ_TYPE_LEVEL_LOW,
+} irq_type_t;
 
-struct stack_frame {
-    uint64_t rax;
-    uint64_t rcx;
-    uint64_t rdx;
-    uint64_t rbx;
-    uint64_t rbp;
-    uint64_t rsi;
-    uint64_t rdi;
-    uint64_t r8;
-    uint64_t r9;
-    uint64_t r10;
-    uint64_t r11;
-    uint64_t r12;
-    uint64_t r13;
-    uint64_t r14;
-    uint64_t r15;
+/**
+ * Global interrupt management
+ */
 
-    uint64_t interrupt_number;
-    uint64_t error_code;
+// Initialize the architecture-specific interrupt controller (GIC or APIC)
+void interrupts_init(void);
 
-    uint64_t rip, cs, rflags;
-} __attribute__((packed));
+// Enable/Disable interrupts globally on the current CPU
+void interrupts_enable(void);
+void interrupts_disable(void);
 
-void enable_interrupts(void);
+/**
+ * IRQ Routing
+ */
 
-void disable_interrupts(void);
+// Registers a handler for a specific IRQ line
+// irq: The hardware IRQ number
+// handler: The function to call
+// priv: Private data passed back to the handler
+bool interrupts_register_handler(uint32_t irq, irq_handler_t handler, void *priv);
 
-__attribute__((used))
-void interrupt_handler(struct stack_frame *frame);
+// Unregister a handler
+bool interrupts_unregister_handler(uint32_t irq);
 
-struct idtr {
-    uint16_t	limit;
-    uint64_t	base;
-} __attribute__((packed));
-
-struct idt_entry {
-    uint16_t    isr_low;      // The lower 16 bits of the ISR's address
-    uint16_t    kernel_cs;    // The GDT segment selector that the CPU will load into CS before calling the ISR
-    uint8_t	    ist;          // The IST in the TSS that the CPU will load into RSP; set to zero for now
-    uint8_t     attributes;   // Type and attributes; see the IDT page
-    uint16_t    isr_mid;      // The higher 16 bits of the lower 32 bits of the ISR's address
-    uint32_t    isr_high;     // The higher 32 bits of the ISR's address
-    uint32_t    reserved;     // Set to zero
-} __attribute__((packed));
-
-
-#endif //KERNEL_2026_01_31_INTERRUPTS_H
+// Configure an IRQ (trigger type, priority, etc.)
+void interrupts_configure_irq(uint32_t irq, irq_type_t type, uint8_t priority);

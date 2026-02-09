@@ -10,19 +10,19 @@ platform_src_dir := $(platform_dir)/src
 platform_obj_build_dir := $(BUILD)/$(call relative_path_from_srctree,$(platform_dir))/objs_$(ARCH)
 
 PLATFORM_SRC_FILES :=
+PLATFORM_ASM_FILES :=
 
 # Common files
 PLATFORM_SRC_FILES += $(wildcard $(platform_src_dir)/*.c)
-PLATFORM_SRC_FILES += $(platform_src_dir)/interrupts/interrupts.c # Temporarily before directory structure change
 
 # Arch-specific files
 PLATFORM_SRC_FILES += $(wildcard $(platform_src_dir)/arch/$(ARCH)/*.c)
+PLATFORM_ASM_FILES += $(wildcard $(platform_src_dir)/arch/$(ARCH)/*.asm) $(wildcard $(platform_src_dir)/arch/$(ARCH)/*.S)
 
 # Serial driver files
 PLATFORM_SRC_FILES += $(wildcard $(platform_src_dir)/drivers/serial/$(ARCH)/*.c)
 PLATFORM_SRC_FILES += $(wildcard $(platform_src_dir)/drivers/serial/$(ARCH)/**.c)
 
-PLATFORM_ASM_FILES :=
 PLATFORM_ASM_FILES += $(wildcard $(platform_src_dir)/*.$(ARCH).asm) $(wildcard $(platform_src_dir)/**/*.$(ARCH).asm)
 PLATFORM_ASM_FILES += $(wildcard $(platform_src_dir)/*.$(ARCH).S) $(wildcard $(platform_src_dir)/**/*.$(ARCH).S)
 
@@ -30,6 +30,8 @@ PLATFORM_OBJS=
 PLATFORM_OBJS += $(patsubst $(platform_src_dir)/%.c,$(platform_obj_build_dir)/%.$(ARCH).o,$(PLATFORM_SRC_FILES))
 PLATFORM_OBJS += $(patsubst $(platform_src_dir)/%.$(ARCH).asm,$(platform_obj_build_dir)/%.$(ARCH).o,$(PLATFORM_ASM_FILES))
 PLATFORM_OBJS += $(patsubst $(platform_src_dir)/%.$(ARCH).S,$(platform_obj_build_dir)/%.$(ARCH).o,$(PLATFORM_ASM_FILES))
+PLATFORM_OBJS += $(patsubst $(platform_src_dir)/arch/$(ARCH)/%.S,$(platform_obj_build_dir)/arch/$(ARCH)/%.$(ARCH).o,$(PLATFORM_ASM_FILES))
+PLATFORM_OBJS += $(patsubst $(platform_src_dir)/arch/$(ARCH)/%.asm,$(platform_obj_build_dir)/arch/$(ARCH)/%.$(ARCH).o,$(PLATFORM_ASM_FILES))
 
 
 INCLUDE_HEADERS := $(platform_inc_dir)
@@ -70,6 +72,14 @@ $(platform_obj_build_dir)/%.x86_64.o: $(platform_dir)/src/%.x86_64.asm $(BUILD)
 	$(NASM) $(NASMFLAGS) $< -o $@
 
 $(platform_obj_build_dir)/%.aarch64.o: $(platform_dir)/src/%.aarch64.S $(BUILD)
+	(mkdir -p $(dir $@) || true)
+	$(AARCH64_ELF_AS) $< -o $@
+
+$(platform_obj_build_dir)/arch/x86_64/%.x86_64.o: $(platform_dir)/src/arch/x86_64/%.asm $(BUILD)
+	(mkdir -p $(dir $@) || true)
+	$(NASM) $(NASMFLAGS) $< -o $@
+
+$(platform_obj_build_dir)/arch/aarch64/%.aarch64.o: $(platform_dir)/src/arch/aarch64/%.S $(BUILD)
 	(mkdir -p $(dir $@) || true)
 	$(AARCH64_ELF_AS) $< -o $@
 

@@ -1,7 +1,7 @@
 default: help
 .SUFFIXES:            # Delete the default suffixes
 
-ARCH := x86_64
+ARCH := aarch64
 BUILD := $(abspath ./build)
 DEPS := $(abspath ./dependencies)
 
@@ -115,7 +115,7 @@ QEMU_IMAGE := $(BUILD)/kernel.$(ARCH).iso
 QEMUFLAGS += -cdrom $(QEMU_IMAGE)
 
 else ifeq ($(ARCH),aarch64)
-QEMU += -M virt,highmem=on
+QEMU += -M virt,highmem=on,gic-version=2
 QEMU_IMAGE := $(BUILD)/kernel.aarch64.img
 
 QEMUFLAGS += -cpu cortex-a72 -m 2G

@@ -26,7 +26,7 @@ struct thread {
 
     // stack lives in kernel BSS for now (simple, predictable)
     uint8_t stack[STACK_SIZE] __attribute__((aligned(16)));
-};
+} __attribute__((aligned(16)));
 
 static struct thread g_threads[MAX_THREADS];
 static int g_current = -1;
@@ -66,7 +66,7 @@ static int pick_next_runnable(void) {
 }
 
 int sched_create(thread_fn_t fn, void *arg) {
-    disable_interrupts();
+    interrupts_disable();
 
     int idx = -1;
     for (int i = 0; i < MAX_THREADS; i++) {
@@ -76,7 +76,7 @@ int sched_create(thread_fn_t fn, void *arg) {
         }
     }
     if (idx < 0) {
-        enable_interrupts();
+        interrupts_enable();
         return -1;
     }
 
@@ -111,7 +111,8 @@ int sched_create(thread_fn_t fn, void *arg) {
 
     t->state = T_RUNNABLE;
 
-    enable_interrupts();
+    interrupts_enable();
+
     return idx;
 }
 
@@ -139,18 +140,20 @@ static void sched_yield_now(void) {
 void sched_yield_if_needed(void) {
     if (!g_need_resched) return;
 
-    disable_interrupts();
+    interrupts_disable();
     if (!g_need_resched) {
-        enable_interrupts();
+        interrupts_enable();
         return;
     }
+
     g_need_resched = false;
     sched_yield_now();
-    enable_interrupts();
+
+    interrupts_enable();
 }
 
 _Noreturn void sched_exit(void) {
-    disable_interrupts();
+    interrupts_disable();
 
     if (g_current >= 0) {
         g_threads[g_current].state = T_DEAD;
@@ -170,11 +173,13 @@ _Noreturn void sched_exit(void) {
 }
 
 _Noreturn void sched_start(void) {
-    disable_interrupts();
+    interrupts_disable();
+
     serial_println("sched: starting");
     g_need_resched = false;
     sched_yield_now();
-    enable_interrupts();
+
+    interrupts_enable();
 
     hcf();
 }
