@@ -62,12 +62,11 @@ void interrupts_disable(void) {
 }
 
 bool interrupts_register_handler(uint32_t irq, irq_handler_t handler, void *priv) {
-    // Note: On x86, hardware IRQs are usually remapped to 32-255
-    uint32_t vector = irq + 32;
-    if (vector > 255) return false;
+    if (irq < 0x30 || irq > 0xFF) return false; // allow APIC only (and we are mapping APIC from 0x30 to 0xFF)
 
-    handlers[vector] = handler;
-    handler_priv[vector] = priv;
+    handlers[irq] = handler;
+    handler_priv[irq] = priv;
+
     return true;
 }
 
@@ -81,6 +80,12 @@ void x86_64_interrupt_dispatcher(struct interrupt_frame *frame) {
         serial_print_hex_u64(frame->error_code);
         serial_println("");
         hcf();
+    }
+
+    if (frame->interrupt_number < 0x30) {
+        serial_print("WARNING: legacy PIC interrupt");
+        serial_print_hex_u64(frame->interrupt_number);
+        serial_println("");
     }
 
     if (handlers[frame->interrupt_number]) {

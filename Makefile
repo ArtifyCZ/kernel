@@ -1,7 +1,7 @@
 default: help
 .SUFFIXES:            # Delete the default suffixes
 
-ARCH := aarch64
+ARCH := x86_64
 BUILD := $(abspath ./build)
 DEPS := $(abspath ./dependencies)
 
