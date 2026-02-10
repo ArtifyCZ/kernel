@@ -133,7 +133,17 @@ static void thread_heartbeat(void *arg) {
     (void)arg;
 
     for (;;) {
-        terminal_print_char('.');
+        terminal_print_char('A');
+        for (volatile uint64_t i = 0; i < 2000000; i++) { }
+        sched_yield_if_needed();
+    }
+}
+
+static void thread_heartbeat2(void *arg) {
+    (void)arg;
+
+    for (;;) {
+        terminal_print_char('B');
         for (volatile uint64_t i = 0; i < 2000000; i++) { }
         sched_yield_if_needed();
     }
@@ -247,10 +257,11 @@ __attribute__((used)) void boot(void) {
 
     terminal_println("Hello world!");
 
-    // sched_init();
+    sched_init();
 
     // (void)sched_create(thread_keyboard, NULL);
-    // (void)sched_create(thread_heartbeat, NULL);
+    (void)sched_create(thread_heartbeat, NULL);
+    (void)sched_create(thread_heartbeat2, NULL);
 
     serial_println("Initializing timer...");
     timer_init(100);
@@ -264,7 +275,7 @@ __attribute__((used)) void boot(void) {
     ticker_init();
     serial_println("Ticker enabled!");
 
-    // sched_start();
+    sched_start();
 
     // kernel_main();
 

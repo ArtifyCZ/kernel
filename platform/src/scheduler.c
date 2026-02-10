@@ -1,30 +1,24 @@
-//
-// Created by Richard Tichý on 04.02.2026.
-//
-
 #include "scheduler.h"
-
-#include "boot.h"
 #include "drivers/serial.h"
 #include "stdbool.h"
-#include "terminal.h"
 #include "interrupts.h"
+#include "stddef.h"
 
 #define MAX_THREADS  8
 #define STACK_SIZE   (16 * 1024)
 
 enum thread_state {
     T_UNUSED = 0,
-    T_RUNNABLE,
-    T_RUNNING,
-    T_DEAD
+    T_RUNNABLE = 1,
+    T_RUNNING = 2,
+    T_DEAD = 3,
 };
 
 struct thread {
     enum thread_state state;
-    struct thread_ctx ctx;
+    struct thread_ctx *ctx; // Now a pointer to the context on the stack
 
-    // stack lives in kernel BSS for now (simple, predictable)
+    // stack lives in kernel BSS
     uint8_t stack[STACK_SIZE] __attribute__((aligned(16)));
 } __attribute__((aligned(16)));
 
@@ -33,7 +27,24 @@ static int g_current = -1;
 
 static volatile bool g_need_resched = false;
 
-static struct thread_ctx boot_ctx;
+// We need a place to store the "Main/Boot" thread's pointer
+// when we switch away from it for the first time.
+static struct thread_ctx *g_boot_ctx_ptr = NULL;
+
+/**
+ * The Trampoline: Every thread starts here.
+ * This decouples the assembly from the scheduler's exit logic.
+ */
+static void scheduler_trampoline(thread_fn_t fn, void *arg) {
+    // New threads start with interrupts disabled (from sched_start/yield)
+    interrupts_enable();
+
+    if (fn) {
+        fn(arg);
+    }
+
+    sched_exit();
+}
 
 void sched_request_reschedule(void) {
     g_need_resched = true;
@@ -42,7 +53,7 @@ void sched_request_reschedule(void) {
 void sched_init(void) {
     for (int i = 0; i < MAX_THREADS; i++) {
         g_threads[i].state = T_UNUSED;
-        g_threads[i].ctx.rsp = 0;
+        g_threads[i].ctx = NULL;
     }
     g_current = -1;
     g_need_resched = false;
@@ -51,15 +62,8 @@ void sched_init(void) {
 }
 
 static int pick_next_runnable(void) {
-    if (g_current < 0) {
-        for (int i = 0; i < MAX_THREADS; i++) {
-            if (g_threads[i].state == T_RUNNABLE) return i;
-        }
-        return -1;
-    }
-
     for (int off = 1; off <= MAX_THREADS; off++) {
-        int idx = (g_current + off) % MAX_THREADS;
+        int idx = (g_current < 0) ? (off - 1) : (g_current + off) % MAX_THREADS;
         if (g_threads[idx].state == T_RUNNABLE) return idx;
     }
     return -1;
@@ -75,44 +79,21 @@ int sched_create(thread_fn_t fn, void *arg) {
             break;
         }
     }
+
     if (idx < 0) {
         interrupts_enable();
         return -1;
     }
 
     struct thread *t = &g_threads[idx];
+    uintptr_t stack_top = (uintptr_t)&t->stack[STACK_SIZE];
 
-    // Build initial stack so that context_switch() "ret" lands in thread_entry.
-    uintptr_t sp = (uintptr_t) &t->stack[STACK_SIZE];
-
-    // Ensure 16-byte alignment before a call boundary.
-    sp &= ~(uintptr_t) 0xF;
-
-    sp -= sizeof(uint64_t);
-    *(uint64_t *) sp = (uint64_t) (uintptr_t) arg;
-
-    sp -= sizeof(uint64_t);
-    *(uint64_t *) sp = (uint64_t) (uintptr_t) fn;
-
-    // Stack layout (top -> bottom):
-    //   [return RIP] = thread_entry
-    //   [fn]         = fn
-    //   [arg]        = arg
-    sp -= sizeof(uint64_t);
-    *(uint64_t *) sp = (uint64_t) (uintptr_t) thread_entry;
-
-    t->ctx.rsp = sp;
-    t->ctx.rbx = 0;
-    t->ctx.rbp = 0;
-    t->ctx.r12 = 0;
-    t->ctx.r13 = 0;
-    t->ctx.r14 = 0;
-    t->ctx.r15 = 0;
-
+    // Use the agnostic thread_setup.
+    // It returns the pointer to the context it carved out of the stack.
+    t->ctx = thread_setup(stack_top, scheduler_trampoline, fn, arg);
     t->state = T_RUNNABLE;
 
     interrupts_enable();
-
     return idx;
 }
 
@@ -129,26 +110,28 @@ static void sched_yield_now(void) {
     }
     g_threads[next].state = T_RUNNING;
 
+    // The logic:
+    // &old_ptr: where the ASM will write the current SP
+    // new_ptr:  the actual address the ASM will load into SP
+    struct thread_ctx **old_ctx_ref;
     if (prev < 0) {
-        context_switch(&boot_ctx, &g_threads[next].ctx);
-        return;
+        old_ctx_ref = &g_boot_ctx_ptr;
+    } else {
+        old_ctx_ref = &g_threads[prev].ctx;
     }
 
-    context_switch(&g_threads[prev].ctx, &g_threads[next].ctx);
+    thread_context_switch(old_ctx_ref, g_threads[next].ctx);
 }
 
 void sched_yield_if_needed(void) {
     if (!g_need_resched) return;
 
     interrupts_disable();
-    if (!g_need_resched) {
-        interrupts_enable();
-        return;
+    // Re-check after disable to avoid race conditions
+    if (g_need_resched) {
+        g_need_resched = false;
+        sched_yield_now();
     }
-
-    g_need_resched = false;
-    sched_yield_now();
-
     interrupts_enable();
 }
 
@@ -159,15 +142,15 @@ _Noreturn void sched_exit(void) {
         g_threads[g_current].state = T_DEAD;
     }
 
-    // Keep switching to whatever is runnable.
     for (;;) {
+        // Since current is now DEAD, yield_now will find a new T_RUNNABLE
         sched_yield_now();
+
+        // If nothing is runnable, wait for an interrupt (IDLE state)
 #if defined (__x86_64__)
         asm ("hlt");
-#elif defined (__aarch64__) || defined (__riscv)
+#elif defined (__aarch64__)
         asm ("wfi");
-#elif defined (__loongarch64)
-        asm ("idle 0");
 #endif
     }
 }
@@ -177,9 +160,11 @@ _Noreturn void sched_start(void) {
 
     serial_println("sched: starting");
     g_need_resched = false;
+
+    // This will switch from the caller's context into the first thread.
+    // The caller's state will be saved in g_boot_ctx_ptr.
     sched_yield_now();
 
-    interrupts_enable();
-
-    hcf();
+    // Should never reach here
+    for(;;);
 }

@@ -122,6 +122,7 @@ QEMUFLAGS += -cpu cortex-a72 -m 2G
 QEMUFLAGS += -bios /opt/homebrew/opt/qemu/share/qemu/edk2-aarch64-code.fd
 QEMUFLAGS += -drive file=$(QEMU_IMAGE),if=none,format=raw,id=hd0,readonly=on
 QEMUFLAGS += -device virtio-blk-device,drive=hd0
+QEMUFLAGS += -d int,mmu,guest_errors -D qemu.log
 QEMUFLAGS += -device ramfb # TODO: make it work with virtio-gpu-pci and replace the ramfb
 QEMUFLAGS += -device qemu-xhci -device usb-kbd
 

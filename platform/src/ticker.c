@@ -1,5 +1,6 @@
 #include "ticker.h"
 
+#include "scheduler.h"
 #include "stddef.h"
 #include "timer.h"
 #include "drivers/serial.h"
@@ -19,6 +20,8 @@ bool ticker_tick_handler(void *priv) {
         serial_print_hex_u64(ticks);
         serial_println("");
     }
+
+    sched_request_reschedule();
 
     return true;
 }
