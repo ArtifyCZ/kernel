@@ -14,6 +14,7 @@ PLATFORM_ASM_FILES :=
 
 # Common files
 PLATFORM_SRC_FILES += $(wildcard $(platform_src_dir)/*.c)
+PLATFORM_SRC_FILES += $(wildcard $(platform_src_dir)/common/**/*.c)
 
 # Arch-specific files
 PLATFORM_SRC_FILES += $(wildcard $(platform_src_dir)/arch/$(ARCH)/*.c)

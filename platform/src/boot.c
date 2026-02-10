@@ -14,6 +14,7 @@
 #include "terminal.h"
 #include "ticker.h"
 #include "timer.h"
+#include "virtual_address_allocator.h"
 #include "virtual_memory_manager.h"
 
 // Set the base revision to 4, this is recommended as this is the latest
@@ -183,6 +184,7 @@ __attribute__((used)) void boot(void) {
     }
 
     pmm_init(memmap_request.response);
+    vaa_init();
 
     if (hhdm_request.response == NULL) {
         hcf();
@@ -190,18 +192,6 @@ __attribute__((used)) void boot(void) {
     g_hhdm_offset = hhdm_request.response->offset;
 
     vmm_init(hhdm_request.response->offset);
-
-#if defined (__aarch64__)
-    struct limine_framebuffer *fb = framebuffer_request.response->framebuffers[0];
-    for (size_t x = 50; x < 100; x++) {
-        for (size_t y = 50; y < 100; y++) {
-            volatile uint32_t *fb_ptr = fb->address;
-            fb_ptr += x + y * (fb->pitch / 4);
-            fb_ptr[0] = 0xFFAAAA;
-        }
-    }
-
-#endif
 
     uintptr_t serial_device_base;
 #if defined (__x86_64__)

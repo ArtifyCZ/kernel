@@ -2,9 +2,8 @@
 
 #include <stdint.h>
 
+#include "virtual_address_allocator.h"
 #include "virtual_memory_manager.h"
-
-#define KERNEL_VIRTUAL_DEVICE_BASE 0xFFFFC00000010000ULL
 
 // Simplified GICv2 initialization for QEMU virt
 #define GIC_DIST_BASE 0x08000000
@@ -15,8 +14,8 @@ static uint64_t g_gic_dist_base = 0;
 static uint64_t g_gic_cpu_base = 0;
 
 void gic_init(void) {
-    g_gic_dist_base = KERNEL_VIRTUAL_DEVICE_BASE + GIC_DIST_BASE;
-    g_gic_cpu_base = KERNEL_VIRTUAL_DEVICE_BASE + GIC_CPU_BASE;
+    g_gic_dist_base = vaa_alloc_range(VMM_PAGE_SIZE);
+    g_gic_cpu_base = vaa_alloc_range(VMM_PAGE_SIZE);
 
     vmm_map_page(
         &g_kernel_context,

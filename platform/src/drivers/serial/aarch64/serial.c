@@ -2,11 +2,8 @@
 #include <stdint.h>
 #include <stddef.h>
 
-// Include the new agnostic VMM header
+#include "virtual_address_allocator.h"
 #include "virtual_memory_manager.h"
-
-// This should ideally be defined in a "memory_map.h" later
-#define KERNEL_VIRTUAL_DEVICE_BASE 0xFFFFC00000000000ULL
 
 // Private register offsets for the PL011
 #define UART_DR    (0x00 / 4)
@@ -21,8 +18,7 @@
 static volatile uint32_t *uart_base = NULL;
 
 int serial_init(uintptr_t physical_base) {
-    // 1. Calculate the virtual address where we want the UART to live
-    uintptr_t virtual_base = KERNEL_VIRTUAL_DEVICE_BASE;
+    uintptr_t virtual_base = vaa_alloc_range(VMM_PAGE_SIZE);
     uart_base = (volatile uint32_t *)virtual_base;
 
     // We use VMM_FLAG_DEVICE to ensure the MMU treats this as MMIO (no caching/reordering).
