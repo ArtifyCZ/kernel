@@ -22,11 +22,12 @@ fn panic(_: &::core::panic::PanicInfo) -> ! {
 }
 
 unsafe extern "C" {
-    fn serial_println(message: *const c_char);
 
     /// Halt and catch fire; implemented in C
     fn hcf() -> !;
 }
+
+pub(crate) use platform::serial_println;
 
 fn main() {
     unsafe {

@@ -1,9 +1,4 @@
-//
-// Created by artify on 2/1/26.
-//
-
-#ifndef KERNEL_2026_01_31_BOOT_H
-#define KERNEL_2026_01_31_BOOT_H
+#pragma once
 
 // Halt and catch fire function.
 _Noreturn void hcf(void);
@@ -14,5 +9,3 @@ _Noreturn void hcf(void);
 __attribute__((used)) void boot(void);
 
 extern void kernel_main(void);
-
-#endif //KERNEL_2026_01_31_BOOT_H

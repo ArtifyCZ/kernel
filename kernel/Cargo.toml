@@ -17,3 +17,6 @@ panic = "abort"
 
 [dependencies]
 thiserror-no-std = { version = "2.0", features = [] }
+
+[build-dependencies]
+bindgen = "0.72"

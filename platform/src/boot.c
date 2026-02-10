@@ -7,6 +7,7 @@
 
 #include "keyboard.h"
 #include "modules.h"
+#define PPM_INCLUDE_LIMINE
 #include "physical_memory_manager.h"
 #include "psf.h"
 #include "scheduler.h"

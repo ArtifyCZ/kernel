@@ -1,10 +1,6 @@
 use thiserror_no_std::Error;
+use crate::platform::bindings;
 use crate::platform::physical_page_frame::{PhysicalPageFrame, PhysicalPageFrameParseError};
-
-unsafe extern "C" {
-    // uintptr_t pmm_alloc_frame(void);
-    fn pmm_alloc_frame() -> usize;
-}
 
 pub struct PhysicalMemoryManager;
 
@@ -19,7 +15,7 @@ pub enum PhysicalMemoryManagerAllocFrameError {
 impl PhysicalMemoryManager {
     pub unsafe fn alloc_frame()
     -> Result<PhysicalPageFrame, PhysicalMemoryManagerAllocFrameError> {
-        let page_frame = unsafe { pmm_alloc_frame() };
+        let page_frame = unsafe { bindings::pmm_alloc_frame() };
         if page_frame == 0 {
             return Err(PhysicalMemoryManagerAllocFrameError::NoAvailablePages);
         }

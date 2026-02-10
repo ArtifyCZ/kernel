@@ -4,6 +4,7 @@
 
 #include "physical_memory_manager.h"
 
+#include "limine.h"
 #include "drivers/serial.h"
 
 static inline uint64_t align_up_u64(uint64_t v, uint64_t a) {
