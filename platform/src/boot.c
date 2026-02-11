@@ -5,7 +5,6 @@
 #include "interrupts.h"
 #include "boot.h"
 
-#include "keyboard.h"
 #include "modules.h"
 #define PPM_INCLUDE_LIMINE
 #include "physical_memory_manager.h"
@@ -17,6 +16,8 @@
 #include "timer.h"
 #include "virtual_address_allocator.h"
 #include "virtual_memory_manager.h"
+#include "arch/x86_64/acpi.h"
+#include "drivers/keyboard.h"
 
 // Set the base revision to 4, this is recommended as this is the latest
 // base revision described by the Limine boot protocol specification.
@@ -64,6 +65,12 @@ static volatile struct limine_executable_address_request kernel_address_request 
 __attribute__((used, section(".limine_requests"), aligned(8)))
 static volatile struct limine_module_request module_request = {
     .id = LIMINE_MODULE_REQUEST_ID,
+    .revision = 0
+};
+
+__attribute__((used, section(".limine_requests"), aligned(8)))
+static volatile struct limine_rsdp_request rsdp_request = {
+    .id = LIMINE_RSDP_REQUEST_ID,
     .revision = 0
 };
 
@@ -131,38 +138,12 @@ void try_virtual_mapping(void) {
     serial_println("VMM test: success!");
 }
 
-static void thread_heartbeat(void *arg) {
-    (void)arg;
-
-    for (;;) {
-        terminal_print_char('A');
-        for (volatile uint64_t i = 0; i < 2000000; i++) { }
-        sched_yield_if_needed();
-    }
-}
-
-static void thread_heartbeat2(void *arg) {
-    (void)arg;
-
-    for (;;) {
-        terminal_print_char('B');
-        for (volatile uint64_t i = 0; i < 2000000; i++) { }
-        sched_yield_if_needed();
-    }
-}
-
 static void thread_keyboard(void *arg) {
-    (void)arg;
+    (void) arg;
 
     for (;;) {
-        uint8_t sc;
-        if (!keyboard_read_char(&sc)) {
-            sched_yield_if_needed();
-            continue;
-        }
-
-        char c = kbd_translate_scancode(sc);
-        if (c == '\0') {
+        char c;
+        if (!keyboard_get_char(&c)) {
             sched_yield_if_needed();
             continue;
         }
@@ -231,6 +212,12 @@ __attribute__((used)) void boot(void) {
 #endif
     serial_println("Interrupt invoked successfully!");
 
+#if defined (__x86_64__)
+    serial_println("Initializing ACPI...");
+    acpi_init(rsdp_request.response->address);
+    serial_println("ACPI initialized!");
+#endif
+
     modules_init(module_request.response);
 
     const struct limine_file *font = module_find("kernel-font.psf");
@@ -250,13 +237,15 @@ __attribute__((used)) void boot(void) {
 
     sched_init();
 
-    // (void)sched_create(thread_keyboard, NULL);
-    (void)sched_create(thread_heartbeat, NULL);
-    (void)sched_create(thread_heartbeat2, NULL);
+    (void) sched_create(thread_keyboard, NULL);
 
     serial_println("Initializing timer...");
     timer_init(100);
     serial_println("Timer initialized!");
+
+    serial_println("Initializing keyboard...");
+    keyboard_init();
+    serial_println("Keyboard initialized!");
 
     serial_println("Enabling interrupts...");
     interrupts_enable();

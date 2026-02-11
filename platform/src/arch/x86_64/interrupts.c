@@ -5,6 +5,7 @@
 
 #include "boot.h"
 #include "io_wrapper.h"
+#include "lapic.h"
 #include "drivers/serial.h"
 
 // The IDT structure
@@ -96,10 +97,15 @@ void x86_64_interrupt_dispatcher(struct interrupt_frame *frame) {
         serial_println("");
     }
 
-    if (frame->interrupt_number >= 32 && frame->interrupt_number <= 47) {
-        if (frame->interrupt_number >= 40) {
+    if (frame->interrupt_number >= 0x20 && frame->interrupt_number <= 0x2F) {
+        if (frame->interrupt_number >= 0x28) {
             outb(0xA0, 0x20); // Send EOI to Slave PIC
         }
         outb(0x20, 0x20);     // Send EOI to Master PIC
+    }
+
+    if (0x30 <= frame->interrupt_number && frame->interrupt_number < 0x80) {
+        // APIC interrupts
+        lapic_eoi();
     }
 }
