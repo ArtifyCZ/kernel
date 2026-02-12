@@ -50,24 +50,46 @@ void gic_enable_interrupt(uint32_t vector) {
     // Each bit in GICD_ISENABLERn enables one interrupt
     uint32_t reg = vector / 32;
     uint32_t bit = vector % 32;
-    *(volatile uint32_t*)(g_gic_dist_base + 0x100 + (reg * 4)) = (1 << bit);
+    *(volatile uint32_t *) (g_gic_dist_base + 0x100 + (reg * 4)) = (1 << bit);
 }
 
 void gic_configure_interrupt(uint32_t vector, uint8_t priority) {
-    // 1. Set Priority (GICD_IPRIORITYRn)
+    // 1. Set Priority (Keep your existing logic)
     uint32_t prio_reg = vector / 4;
     uint32_t prio_off = (vector % 4) * 8;
-
-    uint32_t val = *(volatile uint32_t*)(g_gic_dist_base + 0x400 + (prio_reg * 4));
+    uint32_t val = *(volatile uint32_t *) (g_gic_dist_base + 0x400 + (prio_reg * 4));
     val &= ~(0xFF << prio_off);
     val |= (priority << prio_off);
-    *(volatile uint32_t*)(g_gic_dist_base + 0x400 + (prio_reg * 4)) = val;
+    *(volatile uint32_t *) (g_gic_dist_base + 0x400 + (prio_reg * 4)) = val;
 
-    // 2. Set Group 1 (GICD_IGROUPRn)
+    // 2. Set Group 1 (Standard IRQ routing)
     uint32_t group_reg = vector / 32;
     uint32_t group_bit = vector % 32;
-    // Use |= to preserve other interrupt group settings in the same register
-    *(volatile uint32_t*)(g_gic_dist_base + 0x080 + (group_reg * 4)) |= (1 << group_bit);
+    *(volatile uint32_t *) (g_gic_dist_base + 0x080 + (group_reg * 4)) |= (1 << group_bit);
+}
+
+void gic_set_trigger_mode(uint32_t vector, bool edge) {
+    // GICD_ICFGRn (Interrupt Configuration Registers)
+    // 2 bits per interrupt. Bit [1] = 0 (Level), 1 (Edge)
+    uint32_t reg = vector / 16;
+    uint32_t bit = (vector % 16) * 2 + 1;
+
+    volatile uint32_t *icfgr = (uint32_t *) (g_gic_dist_base + 0xC00 + (reg * 4));
+    if (edge) *icfgr |= (1 << bit);
+    else *icfgr &= ~(1 << bit);
+}
+
+void gic_set_target_cpu(uint32_t vector, uint8_t cpu_mask) {
+    // GICD_ITARGETSRn: 1 byte per interrupt
+    // cpu_mask = 0x01 targets CPU 0
+    uint32_t reg = vector / 4;
+    uint32_t off = (vector % 4) * 8;
+
+    volatile uint32_t* target_reg = (uint32_t*)(g_gic_dist_base + 0x800 + (reg * 4));
+    uint32_t val = *target_reg;
+    val &= ~(0xFF << off);
+    val |= (cpu_mask << off);
+    *target_reg = val;
 }
 
 uint32_t gic_acknowledge_interrupt(void) {

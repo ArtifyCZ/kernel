@@ -1,9 +1,12 @@
 #include "drivers/serial.h"
+
 #include <stdint.h>
 #include <stddef.h>
-
+#include "interrupts.h"
 #include "virtual_address_allocator.h"
 #include "virtual_memory_manager.h"
+#include "../../keyboard/common/keyboard_priv.h"
+#include "../../../arch/aarch64/gic.h"
 
 // Private register offsets for the PL011
 #define UART_DR    (0x00 / 4)
@@ -12,16 +15,47 @@
 #define UART_FBRD  (0x28 / 4)
 #define UART_LCRH  (0x2C / 4)
 #define UART_CR    (0x30 / 4)
+#define UART_IMSC  (0x38 / 4) // Interrupt Mask Set/Clear
+#define UART_MIS   (0x40 / 4) // Masked Interrupt Status
+#define UART_ICR   (0x44 / 4) // Interrupt Clear Register
 
-#define FR_TXFF    (1 << 5)
+// Register bits
+#define FR_RXFE    (1 << 4) // Receive FIFO Empty
+#define FR_TXFF    (1 << 5) // Transmit FIFO Full
+#define INT_RX     (1 << 4) // Receive Interrupt bit
 
 static volatile uint32_t *uart_base = NULL;
 
+bool pl011_irq_handler(struct interrupt_frame *frame, void *priv) {
+    if (!uart_base) return false;
+
+    // Check if it's actually an RX interrupt
+    if (uart_base[UART_MIS] & INT_RX) {
+        // Drain the FIFO
+        while (!(uart_base[UART_FR] & FR_RXFE)) {
+            uint32_t data = uart_base[UART_DR];
+            uint8_t ch = (uint8_t)(data & 0xFF);
+
+            // Push to the same buffer the VirtIO driver used
+            keyboard_buffer_push(ch);
+        }
+
+        // Clear the interrupt
+        uart_base[UART_ICR] = INT_RX;
+        return true;
+    }
+
+    return false;
+}
+
+/**
+ * serial_init: Should be called VERY early.
+ * Only sets up basic MMIO mapping and Polling-based TX/RX.
+ */
 int serial_init(uintptr_t physical_base) {
     uintptr_t virtual_base = vaa_alloc_range(VMM_PAGE_SIZE);
     uart_base = (volatile uint32_t *)virtual_base;
 
-    // We use VMM_FLAG_DEVICE to ensure the MMU treats this as MMIO (no caching/reordering).
     bool success = vmm_map_page(
         &g_kernel_context,
         virtual_base,
@@ -29,18 +63,40 @@ int serial_init(uintptr_t physical_base) {
         VMM_FLAG_PRESENT | VMM_FLAG_WRITE | VMM_FLAG_DEVICE
     );
 
-    if (!success) {
-        // If mapping fails, we can't initialize the serial port.
-        // On a real kernel, you might hang or panic here.
-        return -1;
-    }
+    if (!success) return -1;
 
-    // 3. Hardware Initialization (PL011 specific)
-    uart_base[UART_CR] = 0;               // Disable UART
-    uart_base[UART_LCRH] = (3 << 5);      // 8 bits, no parity, 1 stop bit (8N1)
-    uart_base[UART_CR] = (1 << 0) | (1 << 8) | (1 << 9); // Enable UART, TX, RX
+    // Hardware Reset - Disable everything first
+    uart_base[UART_CR] = 0;
+    uart_base[UART_ICR] = 0x7FF;          // Clear all sticky interrupts
+
+    // 8N1 + Enable FIFOs. We enable FIFOs here so hardware starts
+    // buffering keys even before we enable interrupts.
+    uart_base[UART_LCRH] = (3 << 5) | (1 << 4);
+
+    // Enable UART, TX, and RX (Polling mode is now active)
+    uart_base[UART_CR] = (1 << 0) | (1 << 8) | (1 << 9);
 
     return 0;
+}
+
+/**
+ * keyboard_arch_init: Called after interrupts and GIC are ready.
+ * Switches the UART from Polling-Input to Interrupt-Input.
+ */
+void keyboard_arch_init(void) {
+    if (!uart_base) return;
+
+    // 1. Enable Receive Interrupt Mask in UART hardware
+    uart_base[UART_IMSC] = INT_RX;
+
+    // 2. Configure GIC
+    // UART0 on QEMU 'virt' is SPI 1 -> IRQ 33
+    uint32_t uart_irq = 33;
+    gic_configure_interrupt(uart_irq, 0x80);
+    gic_set_target_cpu(uart_irq, 0x01);
+    interrupts_register_handler(uart_irq, pl011_irq_handler, NULL);
+
+    serial_println("Serial Keyboard: Interrupts enabled.");
 }
 
 static int is_transmit_empty() {

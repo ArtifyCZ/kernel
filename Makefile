@@ -106,13 +106,11 @@ $(BUILD)/raspi4b-uefi-firmware:
 
 QEMU := qemu-system-$(ARCH)
 
-QEMUFLAGS += -serial stdio
-
-
 ifeq ($(ARCH),x86_64)
 QEMU_IMAGE := $(BUILD)/kernel.$(ARCH).iso
 
 QEMUFLAGS += -cdrom $(QEMU_IMAGE)
+QEMUFLAGS += -serial stdio
 
 else ifeq ($(ARCH),aarch64)
 QEMU += -M virt,highmem=on,gic-version=2
@@ -125,6 +123,7 @@ QEMUFLAGS += -device virtio-blk-device,drive=hd0
 QEMUFLAGS += -d int,mmu,guest_errors -D qemu.log
 QEMUFLAGS += -device ramfb # TODO: make it work with virtio-gpu-pci and replace the ramfb
 QEMUFLAGS += -device qemu-xhci -device usb-kbd
+QEMUFLAGS += -chardev stdio,id=con0 -serial chardev:con0
 
 else
 $(error Architecture $(ARCH) not configured for Qemu)
