@@ -26,7 +26,7 @@
 
 static volatile uint32_t *uart_base = NULL;
 
-bool pl011_irq_handler(struct interrupt_frame *frame, void *priv) {
+bool pl011_irq_handler(struct interrupt_frame **frame, void *priv) {
     if (!uart_base) return false;
 
     // Check if it's actually an RX interrupt
@@ -34,10 +34,10 @@ bool pl011_irq_handler(struct interrupt_frame *frame, void *priv) {
         // Drain the FIFO
         while (!(uart_base[UART_FR] & FR_RXFE)) {
             uint32_t data = uart_base[UART_DR];
-            uint8_t ch = (uint8_t)(data & 0xFF);
+            uint8_t ch = (uint8_t) (data & 0xFF);
+            const char c = ch == '\r' ? '\n' : ch;
 
-            // Push to the same buffer the VirtIO driver used
-            keyboard_buffer_push(ch);
+            keyboard_buffer_push(c);
         }
 
         // Clear the interrupt
@@ -54,7 +54,7 @@ bool pl011_irq_handler(struct interrupt_frame *frame, void *priv) {
  */
 int serial_init(uintptr_t physical_base) {
     uintptr_t virtual_base = vaa_alloc_range(VMM_PAGE_SIZE);
-    uart_base = (volatile uint32_t *)virtual_base;
+    uart_base = (volatile uint32_t *) virtual_base;
 
     bool success = vmm_map_page(
         &g_kernel_context,
@@ -67,7 +67,7 @@ int serial_init(uintptr_t physical_base) {
 
     // Hardware Reset - Disable everything first
     uart_base[UART_CR] = 0;
-    uart_base[UART_ICR] = 0x7FF;          // Clear all sticky interrupts
+    uart_base[UART_ICR] = 0x7FF; // Clear all sticky interrupts
 
     // 8N1 + Enable FIFOs. We enable FIFOs here so hardware starts
     // buffering keys even before we enable interrupts.
@@ -115,7 +115,7 @@ static void write_serial(char a) {
         __asm__ volatile("yield");
     }
 
-    uart_base[UART_DR] = (uint32_t)a;
+    uart_base[UART_DR] = (uint32_t) a;
 }
 
 void serial_print(const char *message) {

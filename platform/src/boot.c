@@ -138,18 +138,30 @@ void try_virtual_mapping(void) {
     serial_println("VMM test: success!");
 }
 
+static void thread_heartbeat(void *arg) {
+    (void) arg;
+
+    for (;;) {
+        for (size_t i = 0; i < 2000000; i++) {
+        }
+
+        terminal_print_char('.');
+        // sched_yield_if_needed();
+    }
+}
+
 static void thread_keyboard(void *arg) {
     (void) arg;
 
     for (;;) {
         char c;
         if (!keyboard_get_char(&c)) {
-            sched_yield_if_needed();
+            // sched_yield_if_needed();
             continue;
         }
 
         terminal_print_char(c);
-        sched_yield_if_needed();
+        // sched_yield_if_needed();
     }
 }
 
@@ -237,6 +249,7 @@ __attribute__((used)) void boot(void) {
 
     sched_init();
 
+    (void) sched_create(thread_heartbeat, NULL);
     (void) sched_create(thread_keyboard, NULL);
 
     serial_println("Initializing timer...");

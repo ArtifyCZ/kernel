@@ -21,7 +21,5 @@ bool ticker_tick_handler(void *priv) {
         serial_println("");
     }
 
-    sched_request_reschedule();
-
     return true;
 }

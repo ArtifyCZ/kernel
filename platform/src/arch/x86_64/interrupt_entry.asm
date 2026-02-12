@@ -37,6 +37,7 @@ common_stub:
 
     mov rdi, rsp        ; Pass the stack pointer as the interrupt_frame pointer
     call x86_64_interrupt_dispatcher
+    mov rsp, rax        ; Switch stack to the returned one from the dispatcher
 
     ; Restore registers
     pop r15

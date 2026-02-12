@@ -18,15 +18,19 @@ struct thread_ctx *thread_setup(
 
     // 3. Initialize the "pushed" registers
     // We use r12, r13, and rbx to carry data into arch_thread_entry
-    ctx->r15 = 0;
-    ctx->r14 = 0;
-    ctx->r13 = (uintptr_t) arg; // Passed to rsi in arch_thread_entry
-    ctx->r12 = (uintptr_t) fn; // Passed to rdi in arch_thread_entry
-    ctx->rbp = 0;
-    ctx->rbx = (uintptr_t) trampoline; // Called in arch_thread_entry
+    ctx->frame.r15 = 0;
+    ctx->frame.r14 = 0;
+    ctx->frame.r13 = (uintptr_t) arg; // Passed to rsi in arch_thread_entry
+    ctx->frame.r12 = (uintptr_t) fn; // Passed to rdi in arch_thread_entry
+    ctx->frame.rbp = 0;
+    ctx->frame.rbx = (uintptr_t) trampoline; // Called in arch_thread_entry
 
     // 4. The 'ret' in thread_context_switch will pop this into RIP
-    ctx->rip = (uintptr_t) arch_thread_entry;
+    ctx->frame.rip = (uintptr_t) arch_thread_entry;
+    ctx->frame.cs = 0x28;
+    ctx->frame.rflags = 0x202; // IF set
+    ctx->frame.rsp = stack_top;
+    ctx->frame.ss = 0x30;
 
     return ctx;
 }

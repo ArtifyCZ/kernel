@@ -9,7 +9,7 @@ struct interrupt_frame;
 
 // Callback signature for an interrupt handler.
 // Returns true if the interrupt was handled.
-typedef bool (*irq_handler_t)(struct interrupt_frame *frame, void *priv);
+typedef bool (*irq_handler_t)(struct interrupt_frame **frame, void *priv);
 
 // High-level interrupt types
 typedef enum {

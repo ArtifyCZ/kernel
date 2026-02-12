@@ -6,14 +6,15 @@
 #include "boot.h"
 #include "io_wrapper.h"
 #include "lapic.h"
+#include "scheduler.h"
 #include "drivers/serial.h"
 
 // The IDT structure
 struct idt_entry {
     uint16_t isr_low;
     uint16_t kernel_cs;
-    uint8_t  ist;
-    uint8_t  attributes;
+    uint8_t ist;
+    uint8_t attributes;
     uint16_t isr_mid;
     uint32_t isr_high;
     uint32_t reserved;
@@ -26,7 +27,7 @@ struct idt_ptr {
 
 static struct idt_entry idt[256];
 static irq_handler_t handlers[256];
-static void* handler_priv[256];
+static void *handler_priv[256];
 
 void interrupts_init(void) {
     // This table must be defined in your NASM file (see below)
@@ -35,18 +36,18 @@ void interrupts_init(void) {
     for (int i = 0; i < 256; i++) {
         uint64_t isr = interrupt_stubs[i];
 
-        idt[i].isr_low    = (uint16_t)(isr & 0xFFFF);
-        idt[i].kernel_cs  = 0x28; // Standard Limine 64-bit Code Segment
-        idt[i].ist        = 0;    // No specific stack switching
+        idt[i].isr_low = (uint16_t) (isr & 0xFFFF);
+        idt[i].kernel_cs = 0x28; // Standard Limine 64-bit Code Segment
+        idt[i].ist = 0; // No specific stack switching
         idt[i].attributes = 0x8E; // Present, Ring 0, Interrupt Gate
-        idt[i].isr_mid    = (uint16_t)((isr >> 16) & 0xFFFF);
-        idt[i].isr_high   = (uint32_t)((isr >> 32) & 0xFFFFFFFF);
-        idt[i].reserved   = 0;
+        idt[i].isr_mid = (uint16_t) ((isr >> 16) & 0xFFFF);
+        idt[i].isr_high = (uint32_t) ((isr >> 32) & 0xFFFFFFFF);
+        idt[i].reserved = 0;
     }
 
     struct idt_ptr ptr = {
         .limit = sizeof(idt) - 1,
-        .base = (uint64_t)&idt
+        .base = (uint64_t) &idt
     };
 
     __asm__ volatile("lidt %0" : : "m"(ptr));
@@ -72,8 +73,11 @@ bool interrupts_register_handler(uint32_t irq, irq_handler_t handler, void *priv
 }
 
 // The C dispatcher called from NASM
-void x86_64_interrupt_dispatcher(struct interrupt_frame *frame) {
-    if (frame->error_code != 0 || frame->interrupt_number < 0x20) { // non-zero error code and/or exceptions
+// Returns a pointer to a stack the assembly code should switch to
+// If frame pointer == returned address, then the interrupt returns exactly where it was interrupted
+uintptr_t x86_64_interrupt_dispatcher(struct interrupt_frame *frame) {
+    if (frame->error_code != 0 || frame->interrupt_number < 0x20) {
+        // non-zero error code and/or exceptions
         serial_print("Interrupt: ");
         serial_print_hex_u64(frame->interrupt_number);
         serial_println("");
@@ -82,6 +86,7 @@ void x86_64_interrupt_dispatcher(struct interrupt_frame *frame) {
         serial_println("");
         hcf();
     }
+    struct interrupt_frame *return_frame = frame;
 
     if (frame->interrupt_number < 0x30) {
         serial_print("WARNING: legacy PIC interrupt");
@@ -90,7 +95,7 @@ void x86_64_interrupt_dispatcher(struct interrupt_frame *frame) {
     }
 
     if (handlers[frame->interrupt_number]) {
-        handlers[frame->interrupt_number](frame, handler_priv[frame->interrupt_number]);
+        handlers[frame->interrupt_number](&return_frame, handler_priv[frame->interrupt_number]);
     } else {
         serial_print("Unhandled interrupt: ");
         serial_print_hex_u64(frame->interrupt_number);
@@ -101,11 +106,13 @@ void x86_64_interrupt_dispatcher(struct interrupt_frame *frame) {
         if (frame->interrupt_number >= 0x28) {
             outb(0xA0, 0x20); // Send EOI to Slave PIC
         }
-        outb(0x20, 0x20);     // Send EOI to Master PIC
+        outb(0x20, 0x20); // Send EOI to Master PIC
     }
 
     if (0x30 <= frame->interrupt_number && frame->interrupt_number < 0x80) {
         // APIC interrupts
         lapic_eoi();
     }
+
+    return (uintptr_t) return_frame;
 }

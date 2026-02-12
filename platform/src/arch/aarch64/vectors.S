@@ -114,12 +114,14 @@ exception_vector_table:
 sync_handler_stub:
     push_context
     bl handle_sync_exception
+    mov sp, x0 // Switch stack to the returned one from the handler
     pop_context
 
 .type irq_handler_stub, %function
 irq_handler_stub:
     push_context
     bl handle_irq_exception
+    mov sp, x0 // // Switch stack to the returned one from the handler
     pop_context
 
 .type fiq_handler_stub, %function

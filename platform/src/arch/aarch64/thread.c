@@ -7,20 +7,19 @@ struct thread_ctx *thread_setup(
     thread_fn_t fn,
     void *arg
 ) {
-    // 1. Align and carve space
+    // Align and carve space
     uintptr_t stack_addr = (stack_top & ~0xFULL) - sizeof(struct thread_ctx);
     struct thread_ctx *ctx = (struct thread_ctx *) stack_addr;
 
-    // 2. Initialize
-    ctx->x19 = (uintptr_t) trampoline;
-    ctx->x20 = (uintptr_t) fn;
-    ctx->x21 = (uintptr_t) arg;
+    // Initialize
+    ctx->frame.x[19] = (uintptr_t) trampoline;
+    ctx->frame.x[20] = (uintptr_t) fn;
+    ctx->frame.x[21] = (uintptr_t) arg;
 
-    // Clear other callee-saved regs for predictability
-    ctx->x22 = ctx->x23 = ctx->x24 = ctx->x25 = ctx->x26 = ctx->x27 = ctx->x28 = 0;
-
-    ctx->fp = 0;
-    ctx->lr = (uintptr_t) arch_thread_entry;
+    ctx->frame.elr = (uintptr_t) arch_thread_entry;
+    // SPSR_EL1: M[3:0] = 0101 (EL1h), interrupts enabled (DAIF = 0)
+    // This tells 'eret' to stay in EL1 but use the SP_EL1 stack.
+    ctx->frame.spsr = 0x05;
 
     return ctx; // Hand the "handle" back to the scheduler
 }

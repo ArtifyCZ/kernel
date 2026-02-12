@@ -1,4 +1,5 @@
 #include "scheduler.h"
+
 #include "drivers/serial.h"
 #include "stdbool.h"
 #include "interrupts.h"
@@ -46,17 +47,12 @@ static void scheduler_trampoline(thread_fn_t fn, void *arg) {
     sched_exit();
 }
 
-void sched_request_reschedule(void) {
-    g_need_resched = true;
-}
-
 void sched_init(void) {
     for (int i = 0; i < MAX_THREADS; i++) {
         g_threads[i].state = T_UNUSED;
         g_threads[i].ctx = NULL;
     }
     g_current = -1;
-    g_need_resched = false;
 
     serial_println("sched: initialized");
 }
@@ -86,7 +82,7 @@ int sched_create(thread_fn_t fn, void *arg) {
     }
 
     struct thread *t = &g_threads[idx];
-    uintptr_t stack_top = (uintptr_t)&t->stack[STACK_SIZE];
+    uintptr_t stack_top = (uintptr_t) &t->stack[STACK_SIZE];
 
     // Use the agnostic thread_setup.
     // It returns the pointer to the context it carved out of the stack.
@@ -98,6 +94,7 @@ int sched_create(thread_fn_t fn, void *arg) {
 }
 
 static void sched_yield_now(void) {
+    // @TODO: replace with a syscall to yield instead
     int next = pick_next_runnable();
     if (next < 0) return;
     if (next == g_current) return;
@@ -123,16 +120,21 @@ static void sched_yield_now(void) {
     thread_context_switch(old_ctx_ref, g_threads[next].ctx);
 }
 
-void sched_yield_if_needed(void) {
-    if (!g_need_resched) return;
+struct thread_ctx *sched_heartbeat(struct thread_ctx *frame) {
+    // @TODO: use proper types instead of converting to (void *) to specific
+    int next = pick_next_runnable();
+    if (next < 0) return frame;
+    if (next == g_current) return frame;
 
-    interrupts_disable();
-    // Re-check after disable to avoid race conditions
-    if (g_need_resched) {
-        g_need_resched = false;
-        sched_yield_now();
+    int prev = g_current;
+    g_current = next;
+
+    if (prev >= 0) {
+        g_threads[prev].state = T_RUNNABLE;
+        g_threads[prev].ctx = (void *) frame;
     }
-    interrupts_enable();
+    g_threads[next].state = T_RUNNING;
+    return g_threads[next].ctx;
 }
 
 _Noreturn void sched_exit(void) {
@@ -156,15 +158,18 @@ _Noreturn void sched_exit(void) {
 }
 
 _Noreturn void sched_start(void) {
-    interrupts_disable();
-
     serial_println("sched: starting");
-    g_need_resched = false;
 
     // This will switch from the caller's context into the first thread.
     // The caller's state will be saved in g_boot_ctx_ptr.
-    sched_yield_now();
+    // sched_yield_now();
 
     // Should never reach here
-    for(;;);
+    for (;;) {
+#if defined (__x86_64__)
+        asm ("hlt");
+#elif defined (__aarch64__)
+        asm ("wfi");
+#endif
+    }
 }

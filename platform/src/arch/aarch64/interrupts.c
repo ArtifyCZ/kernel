@@ -2,7 +2,6 @@
 #include "cpu_interrupts.h"
 #include <stdint.h>
 
-#include "boot.h"
 #include "gic.h"
 #include "stddef.h"
 #include "drivers/serial.h"
@@ -97,14 +96,21 @@ static void dump_frame(struct interrupt_frame *frame) {
 }
 
 // This is called by sync_handler_stub in vectors.S
-void handle_sync_exception(struct interrupt_frame *frame) {
+// Returns a pointer to a stack the assembly code should switch to
+// If the frame pointer == returned address, then the interrupt returns exactly where it was interrupted
+uintptr_t handle_sync_exception(struct interrupt_frame *frame) {
+    uint32_t ec = (frame->esr >> 26) & 0x3F;
+
+    if (ec == EC_SYSCALL) {
+        serial_println("Caught Syscall");
+        return (uintptr_t) frame;
+    }
+
     uint64_t far;
     __asm__ volatile("mrs %0, far_el1" : "=r"(far));
 
     serial_println("------------------------------------------");
     serial_println("!!! KERNEL PANIC: Synchronous Abort !!!");
-
-    uint32_t ec = (frame->esr >> 26) & 0x3F;
 
     serial_print("ESR_EL1: ");
     serial_print_hex_u64(frame->esr);
@@ -120,9 +126,6 @@ void handle_sync_exception(struct interrupt_frame *frame) {
     serial_println("");
 
     switch (ec) {
-        case EC_SYSCALL:
-            serial_println("Reason Syscall occurred, continuing");
-            return;
         case EC_DATA_ABORT_SAME:
         case EC_DATA_ABORT_LOWER:
             serial_println("Reason: Data Abort (Check FAR for faulting address)");
@@ -148,11 +151,14 @@ void handle_sync_exception(struct interrupt_frame *frame) {
     while (1) { __asm__("wfi"); }
 }
 
-void handle_irq_exception(struct interrupt_frame *frame) {
+// Returns a pointer to a stack the assembly code should switch to
+// If the frame pointer == returned address, then the interrupt returns exactly where it was interrupted
+uintptr_t handle_irq_exception(struct interrupt_frame *frame) {
     const uint32_t irq_id = gic_acknowledge_interrupt();
 
+    struct interrupt_frame *return_frame = frame;
     if (irq_id < 256 && handlers[irq_id]) {
-        handlers[irq_id](frame, handler_priv[irq_id]);
+        handlers[irq_id](&return_frame, handler_priv[irq_id]);
     } else {
         serial_print("Unhandled IRQ: ");
         serial_print_hex_u64(irq_id);
@@ -160,6 +166,8 @@ void handle_irq_exception(struct interrupt_frame *frame) {
     }
 
     gic_end_of_interrupt(irq_id);
+
+    return (uintptr_t) return_frame;
 }
 
 // Fast Interrupts (FIQ) - Usually reserved for secure monitor or high-priority tasks

@@ -5,6 +5,7 @@
 #include "io_wrapper.h"
 #include "stddef.h"
 #include "lapic.h"
+#include "scheduler.h"
 
 #define PIT_FREQ 1193182
 #define TARGET_MS 10
@@ -17,7 +18,7 @@
 // Value 0x3 corresponds to a divisor of 16
 #define LAPIC_TIMER_DIVISOR 0x3
 
-bool lapic_timer_handler(struct interrupt_frame *frame, void *priv);
+bool lapic_timer_handler(struct interrupt_frame **frame, void *priv);
 
 static volatile uint32_t g_lapic_ticks_per_ms = 0;
 static volatile uint64_t g_ticks = 0;
@@ -96,13 +97,13 @@ uint64_t timer_get_ticks(void) {
     return g_ticks;
 }
 
-bool lapic_timer_handler(struct interrupt_frame *frame, void *priv) {
+bool lapic_timer_handler(struct interrupt_frame **frame, void *priv) {
     g_ticks++;
 
-    bool ack = true;
     if (g_tick_handler != NULL) {
-        ack = g_tick_handler((void *)g_tick_handler_priv);
+        *frame = (struct interrupt_frame *) sched_heartbeat((struct thread_ctx *) *frame);
+        return g_tick_handler((void *)g_tick_handler_priv);
     }
 
-    return ack;
+    return true;
 }

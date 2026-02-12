@@ -13,7 +13,7 @@
 
 #define KEYBOARD_INTERRUPT_VECTOR 0x31
 
-bool keyboard_interrupt_handler(struct interrupt_frame *frame, void *priv);
+bool keyboard_interrupt_handler(struct interrupt_frame **frame, void *priv);
 
 static bool keyboard_read_scancode(uint8_t *out);
 
@@ -37,7 +37,7 @@ static bool keyboard_read_scancode(uint8_t *out) {
     return true;
 }
 
-bool keyboard_interrupt_handler(struct interrupt_frame *frame, void *priv) {
+bool keyboard_interrupt_handler(struct interrupt_frame **frame, void *priv) {
     uint8_t sc;
     char c;
 
