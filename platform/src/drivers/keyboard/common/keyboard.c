@@ -3,65 +3,33 @@
 
 #include "stdbool.h"
 #include "stdint.h"
+#include "../x86_64/keyboard_priv.x86_64.h"
 
 #define INPUT_BUFFER_SIZE 256
 
-static uint8_t input_scancode_buffer[INPUT_BUFFER_SIZE];
+static char input_char_buffer[INPUT_BUFFER_SIZE];
 static uint32_t buffer_head = 0;
 static uint32_t buffer_tail = 0;
-
-static bool g_is_shift_down = false;
-
-static const char map_no_shift[128] = {
-    [0x02] = '1', [0x03] = '2', [0x04] = '3', [0x05] = '4', [0x06] = '5', [0x07] = '6', [0x08] = '7', [0x09] = '8',
-    [0x0A] = '9', [0x0B] = '0',
-    [0x10] = 'q', [0x11] = 'w', [0x12] = 'e', [0x13] = 'r', [0x14] = 't', [0x15] = 'y', [0x16] = 'u', [0x17] = 'i',
-    [0x18] = 'o', [0x19] = 'p',
-    [0x1E] = 'a', [0x1F] = 's', [0x20] = 'd', [0x21] = 'f', [0x22] = 'g', [0x23] = 'h', [0x24] = 'j', [0x25] = 'k',
-    [0x26] = 'l',
-    [0x2C] = 'z', [0x2D] = 'x', [0x2E] = 'c', [0x2F] = 'v', [0x30] = 'b', [0x31] = 'n', [0x32] = 'm',
-    [0x39] = ' ',
-    [0x1C] = '\n',
-    [0x0E] = '\b',
-};
-
-static const char map_shift[128] = {
-    [0x02] = '!', [0x03] = '@', [0x04] = '#', [0x05] = '$', [0x06] = '%', [0x07] = '^', [0x08] = '&', [0x09] = '*',
-    [0x0A] = '(', [0x0B] = ')',
-    [0x10] = 'Q', [0x11] = 'W', [0x12] = 'E', [0x13] = 'R', [0x14] = 'T', [0x15] = 'Y', [0x16] = 'U', [0x17] = 'I',
-    [0x18] = 'O', [0x19] = 'P',
-    [0x1E] = 'A', [0x1F] = 'S', [0x20] = 'D', [0x21] = 'F', [0x22] = 'G', [0x23] = 'H', [0x24] = 'J', [0x25] = 'K',
-    [0x26] = 'L',
-    [0x2C] = 'Z', [0x2D] = 'X', [0x2E] = 'C', [0x2F] = 'V', [0x30] = 'B', [0x31] = 'N', [0x32] = 'M',
-    [0x39] = ' ',
-    [0x1C] = '\n',
-    [0x0E] = '\b',
-};
-
-
-static inline bool is_break(uint8_t sc) { return (sc & 0x80) != 0; }
-
-static inline uint8_t make_code(uint8_t sc) { return sc & 0x7F; }
 
 static inline uint32_t buffer_next_idx(uint32_t idx) {
     return (idx + 1) % INPUT_BUFFER_SIZE;
 }
 
-bool keyboard_buffer_push(uint8_t item) {
+bool keyboard_buffer_push(char item) {
     uint32_t next = buffer_next_idx(buffer_tail);
     if (next == buffer_head) {
         return false; // buffer is full
     }
-    input_scancode_buffer[buffer_tail] = item;
+    input_char_buffer[buffer_tail] = item;
     buffer_tail = next;
     return true;
 }
 
-static bool buffer_pop(uint8_t *out) {
+static bool buffer_pop(char *out) {
     if (buffer_head == buffer_tail) {
         return false; // buffer is empty
     }
-    *out = input_scancode_buffer[buffer_head];
+    *out = input_char_buffer[buffer_head];
     buffer_head = buffer_next_idx(buffer_head);
     return true;
 }
@@ -71,31 +39,5 @@ void keyboard_init(void) {
 }
 
 bool keyboard_get_char(char *out) {
-    uint8_t sc;
-    while (buffer_pop(&sc)) {
-        if (!is_break(sc) && (sc == 0x2A || sc == 0x36)) {
-            g_is_shift_down = true;
-            continue;
-        }
-        if (is_break(sc) && (make_code(sc) == 0x2A || make_code(sc) == 0x36)) {
-            g_is_shift_down = false;
-            continue;
-        }
-
-        if (is_break(sc)) continue; // ignore releases for now
-
-        uint8_t mc = make_code(sc);
-        char c = g_is_shift_down ? map_shift[mc] : map_no_shift[mc];
-        if (c == 0x0) {
-            continue;
-        }
-        *out = c;
-        return true;
-    }
-
-    return false;
-}
-
-bool keyboard_pop_scancode(uint8_t *out) {
     return buffer_pop(out);
 }

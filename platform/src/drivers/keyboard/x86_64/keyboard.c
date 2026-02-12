@@ -2,6 +2,7 @@
 
 #include "interrupts.h"
 #include "io_wrapper.h"
+#include "keyboard_priv.x86_64.h"
 #include "stdbool.h"
 #include "stddef.h"
 #include "stdint.h"
@@ -38,9 +39,12 @@ static bool keyboard_read_scancode(uint8_t *out) {
 
 bool keyboard_interrupt_handler(struct interrupt_frame *frame, void *priv) {
     uint8_t sc;
+    char c;
 
     while (keyboard_read_scancode(&sc)) {
-        keyboard_buffer_push(sc);
+        if (keyboard_arch_parse_scancode(sc, &c)) {
+            keyboard_buffer_push(c);
+        }
     }
 
     return true;
