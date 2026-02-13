@@ -1,5 +1,8 @@
-use crate::platform::bindings;
 use crate::platform::virtual_page_address::VirtualPageAddress;
+
+mod bindings {
+    include_bindings!("virtual_address_allocator.rs");
+}
 
 pub struct VirtualAddressAllocator;
 

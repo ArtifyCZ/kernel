@@ -1,6 +1,9 @@
 use thiserror_no_std::Error;
-use crate::platform::bindings;
 use crate::platform::physical_page_frame::{PhysicalPageFrame, PhysicalPageFrameParseError};
+
+mod bindings {
+    include_bindings!("physical_memory_manager.rs");
+}
 
 pub struct PhysicalMemoryManager;
 

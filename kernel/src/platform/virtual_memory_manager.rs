@@ -1,6 +1,11 @@
-use crate::platform::bindings;
 use crate::platform::physical_page_frame::{PhysicalPageFrame, PhysicalPageFrameParseError};
 use crate::platform::virtual_page_address::VirtualPageAddress;
+
+mod bindings {
+    include_bindings!("virtual_memory_manager.rs");
+}
+
+pub(super) const VMM_PAGE_SIZE: usize = bindings::VMM_PAGE_SIZE as usize;
 
 pub struct VirtualMemoryManager;
 
