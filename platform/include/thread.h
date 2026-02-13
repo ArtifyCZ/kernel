@@ -14,5 +14,3 @@ struct thread_ctx *thread_setup(
     thread_fn_t fn,
     void *arg
 );
-
-void thread_context_switch(struct thread_ctx **old_ctx, struct thread_ctx *new_ctx);

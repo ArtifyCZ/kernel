@@ -93,33 +93,6 @@ int sched_create(thread_fn_t fn, void *arg) {
     return idx;
 }
 
-static void sched_yield_now(void) {
-    // @TODO: replace with a syscall to yield instead
-    int next = pick_next_runnable();
-    if (next < 0) return;
-    if (next == g_current) return;
-
-    int prev = g_current;
-    g_current = next;
-
-    if (prev >= 0) {
-        g_threads[prev].state = T_RUNNABLE;
-    }
-    g_threads[next].state = T_RUNNING;
-
-    // The logic:
-    // &old_ptr: where the ASM will write the current SP
-    // new_ptr:  the actual address the ASM will load into SP
-    struct thread_ctx **old_ctx_ref;
-    if (prev < 0) {
-        old_ctx_ref = &g_boot_ctx_ptr;
-    } else {
-        old_ctx_ref = &g_threads[prev].ctx;
-    }
-
-    thread_context_switch(old_ctx_ref, g_threads[next].ctx);
-}
-
 struct thread_ctx *sched_heartbeat(struct thread_ctx *frame) {
     // @TODO: use proper types instead of converting to (void *) to specific
     int next = pick_next_runnable();
@@ -138,16 +111,11 @@ struct thread_ctx *sched_heartbeat(struct thread_ctx *frame) {
 }
 
 _Noreturn void sched_exit(void) {
-    interrupts_disable();
-
     if (g_current >= 0) {
         g_threads[g_current].state = T_DEAD;
     }
 
     for (;;) {
-        // Since current is now DEAD, yield_now will find a new T_RUNNABLE
-        sched_yield_now();
-
         // If nothing is runnable, wait for an interrupt (IDLE state)
 #if defined (__x86_64__)
         asm ("hlt");

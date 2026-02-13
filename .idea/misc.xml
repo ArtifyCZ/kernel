@@ -13,6 +13,7 @@
     </libraryRoots>
     <excludeRoots>
       <file path="$PROJECT_DIR$/build" />
+      <file path="$PROJECT_DIR$/dependencies" />
       <file path="$PROJECT_DIR$/kernel/target" />
       <file path="$PROJECT_DIR$/platform/build" />
     </excludeRoots>
