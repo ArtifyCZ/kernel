@@ -4,6 +4,7 @@
 #include <stdint.h>
 
 #include "boot.h"
+#include "gdt.h"
 #include "io_wrapper.h"
 #include "lapic.h"
 #include "scheduler.h"
@@ -37,7 +38,7 @@ void interrupts_init(void) {
         uint64_t isr = interrupt_stubs[i];
 
         idt[i].isr_low = (uint16_t) (isr & 0xFFFF);
-        idt[i].kernel_cs = 0x28; // Standard Limine 64-bit Code Segment
+        idt[i].kernel_cs = KERNEL_CODE_SEGMENT;
         idt[i].ist = 0; // No specific stack switching
         idt[i].attributes = 0x8E; // Present, Ring 0, Interrupt Gate
         idt[i].isr_mid = (uint16_t) ((isr >> 16) & 0xFFFF);

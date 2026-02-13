@@ -16,6 +16,7 @@
 #include "virtual_address_allocator.h"
 #include "virtual_memory_manager.h"
 #include "arch/x86_64/acpi.h"
+#include "arch/x86_64/gdt.h"
 #include "drivers/keyboard.h"
 
 // Set the base revision to 4, this is recommended as this is the latest
@@ -210,6 +211,12 @@ __attribute__((used)) void boot(void) {
     }
 
     try_virtual_mapping();
+
+#if defined (__x86_64__)
+    serial_println("Setting up GDT...");
+    gdt_init();
+    serial_println("GDT initialized!");
+#endif
 
     serial_println("Initializing interrupts...");
     interrupts_init();
