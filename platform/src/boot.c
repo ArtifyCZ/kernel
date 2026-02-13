@@ -87,6 +87,8 @@ static volatile uint64_t limine_requests_end_marker[] = LIMINE_REQUESTS_END_MARK
 
 // Halt and catch fire function.
 _Noreturn void hcf(void) {
+    interrupts_disable(); // prevent any switches
+
     for (;;) {
 #if defined (__x86_64__)
         asm ("hlt");
