@@ -2,6 +2,8 @@ use std::env;
 use std::path::PathBuf;
 
 fn main() {
+    let target = env::var("TARGET").unwrap();
+
     // The bindgen::Builder is the main entry point
     // to bindgen, and lets you build up options for
     // the resulting bindings.
@@ -16,6 +18,14 @@ fn main() {
         // included header files changed.
         .parse_callbacks(Box::new(bindgen::CargoCallbacks::new()))
         // Finish the builder and generate the bindings.
+        .clang_arg(format!("--target={}", target))
+        .clang_arg("-nostdinc")
+        .clang_arg("-std=gnu11")
+        .clang_arg("-ffreestanding")
+        .clang_arg("-fno-PIC")
+        .clang_arg("-ffunction-sections")
+        .clang_arg("-fdata-sections")
+        .clang_arg("-I./../dependencies/freestnd-c-hdrs/include")
         .generate()
         // Unwrap the Result and panic on failure.
         .expect("Unable to generate bindings");

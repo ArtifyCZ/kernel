@@ -1,15 +1,22 @@
 default: help
 .SUFFIXES:            # Delete the default suffixes
 
+-include local.mk
+
+# --- Toolchain Configuration ---
 ARCH := x86_64
-BUILD := $(abspath ./build)
-DEPS := $(abspath ./dependencies)
-
-
 CC := clang
 LD := ld.lld
 NASM := nasm
-AARCH64_ELF_AS := aarch64-elf-as
+AARCH64_ELF_AS ?= aarch64-linux-gnu-as
+
+# Fallback QEMU EFI firmware for aarch64
+QEMU_AARCH64_BIOS ?= /usr/share/edk2/aarch64/QEMU_EFI.fd
+
+
+BUILD := $(abspath ./build)
+DEPS := $(abspath ./dependencies)
+
 
 get_current_dir = $(realpath $(dir $(lastword $(MAKEFILE_LIST))))
 srctree := $(call get_current_dir)
@@ -55,7 +62,7 @@ include kernel/Makefile
 include platform/Makefile
 
 
-$(BUILD)/kernel.$(ARCH).elf: $(BUILD) $(BUILD)/libkernel.$(ARCH).a $(BUILD)/libplatform.$(ARCH).a
+$(BUILD)/kernel.$(ARCH).elf: $(BUILD) $(BUILD)/libplatform.$(ARCH).a $(BUILD)/libkernel.$(ARCH).a
 	$(LD) $(LDFLAGS) -o $(BUILD)/kernel.$(ARCH).elf
 
 isofiles_dir := $(BUILD)/isofiles/$(ARCH)
@@ -117,7 +124,7 @@ QEMU += -M virt,highmem=on,gic-version=2
 QEMU_IMAGE := $(BUILD)/kernel.aarch64.img
 
 QEMUFLAGS += -cpu cortex-a72 -m 2G
-QEMUFLAGS += -bios /opt/homebrew/opt/qemu/share/qemu/edk2-aarch64-code.fd
+QEMUFLAGS += -bios $(QEMU_AARCH64_BIOS)
 QEMUFLAGS += -drive file=$(QEMU_IMAGE),if=none,format=raw,id=hd0,readonly=on
 QEMUFLAGS += -device virtio-blk-device,drive=hd0
 QEMUFLAGS += -d int,mmu,guest_errors -D qemu.log
