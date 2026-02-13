@@ -1,4 +1,4 @@
-use crate::platform::memory_layout::KERNEL_HEAP_BASE;
+use crate::platform::memory_layout::{KERNEL_HEAP_BASE, PAGE_FRAME_SIZE};
 use crate::platform::physical_memory_manager::PhysicalMemoryManager;
 use crate::platform::virtual_address::VirtualAddress;
 use crate::platform::virtual_memory_manager::VirtualMemoryManager;
@@ -8,6 +8,7 @@ use core::alloc::{GlobalAlloc, Layout};
 use core::ffi::c_char;
 use core::ops::Add;
 use core::ptr::null_mut;
+use crate::platform::virtual_address_allocator::VirtualAddressAllocator;
 use crate::spin_lock::SpinLock;
 
 static mut NEXT_AVAILABLE_VIRTUAL_ADDRESS: Option<VirtualAddress> = None;
@@ -55,7 +56,7 @@ unsafe impl GlobalAlloc for Allocator {
                 if let Some(last_mapped_virtual_page) = LAST_MAPPED_VIRTUAL_PAGE {
                     last_mapped_virtual_page.next_page()
                 } else {
-                    VirtualPageAddress::new(KERNEL_HEAP_BASE).unwrap()
+                    VirtualAddressAllocator::alloc_range(PAGE_FRAME_SIZE * 1024 * 1024)
                 }
             };
 

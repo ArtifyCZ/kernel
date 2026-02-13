@@ -13,6 +13,7 @@ fn main() {
         .use_core()
         .header("../platform/include/drivers/serial.h")
         .header("../platform/include/physical_memory_manager.h")
+        .header("../platform/include/virtual_address_allocator.h")
         .header("../platform/include/virtual_memory_manager.h")
         // Tell cargo to invalidate the built crate whenever any of the
         // included header files changed.
@@ -26,6 +27,7 @@ fn main() {
         .clang_arg("-ffunction-sections")
         .clang_arg("-fdata-sections")
         .clang_arg("-I./../dependencies/freestnd-c-hdrs/include")
+        .clang_arg("-I./../dependencies/limine-protocol/include")
         .generate()
         // Unwrap the Result and panic on failure.
         .expect("Unable to generate bindings");
