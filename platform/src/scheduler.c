@@ -4,6 +4,7 @@
 #include "stdbool.h"
 #include "interrupts.h"
 #include "stddef.h"
+#include "arch/x86_64/gdt.h"
 
 #define MAX_THREADS  8
 #define STACK_SIZE   (16 * 1024)
@@ -26,27 +27,6 @@ struct thread {
 static struct thread g_threads[MAX_THREADS];
 static int g_current = -1;
 
-static volatile bool g_need_resched = false;
-
-// We need a place to store the "Main/Boot" thread's pointer
-// when we switch away from it for the first time.
-static struct thread_ctx *g_boot_ctx_ptr = NULL;
-
-/**
- * The Trampoline: Every thread starts here.
- * This decouples the assembly from the scheduler's exit logic.
- */
-static void scheduler_trampoline(thread_fn_t fn, void *arg) {
-    // New threads start with interrupts disabled (from sched_start/yield)
-    interrupts_enable();
-
-    if (fn) {
-        fn(arg);
-    }
-
-    sched_exit();
-}
-
 void sched_init(void) {
     for (int i = 0; i < MAX_THREADS; i++) {
         g_threads[i].state = T_UNUSED;
@@ -60,12 +40,13 @@ void sched_init(void) {
 static int pick_next_runnable(void) {
     for (int off = 1; off <= MAX_THREADS; off++) {
         int idx = (g_current < 0) ? (off - 1) : (g_current + off) % MAX_THREADS;
-        if (g_threads[idx].state == T_RUNNABLE) return idx;
+        if (g_threads[idx].state == T_RUNNABLE)
+            return idx;
     }
     return -1;
 }
 
-int sched_create(thread_fn_t fn, void *arg) {
+int sched_create(thread_fn_t fn, void *arg, bool is_user_space) {
     interrupts_disable();
 
     int idx = -1;
@@ -86,7 +67,7 @@ int sched_create(thread_fn_t fn, void *arg) {
 
     // Use the agnostic thread_setup.
     // It returns the pointer to the context it carved out of the stack.
-    t->ctx = thread_setup(stack_top, scheduler_trampoline, fn, arg);
+    t->ctx = thread_setup(stack_top, fn, arg, is_user_space);
     t->state = T_RUNNABLE;
 
     interrupts_enable();
@@ -96,8 +77,10 @@ int sched_create(thread_fn_t fn, void *arg) {
 struct thread_ctx *sched_heartbeat(struct thread_ctx *frame) {
     // @TODO: use proper types instead of converting to (void *) to specific
     int next = pick_next_runnable();
-    if (next < 0) return frame;
-    if (next == g_current) return frame;
+    if (next < 0)
+        return frame;
+    if (next == g_current)
+        return frame;
 
     int prev = g_current;
     g_current = next;
@@ -107,6 +90,9 @@ struct thread_ctx *sched_heartbeat(struct thread_ctx *frame) {
         g_threads[prev].ctx = (void *) frame;
     }
     g_threads[next].state = T_RUNNING;
+#if defined (__x86_64__)
+    gdt_set_kernel_stack((uintptr_t)&g_threads[next].stack[STACK_SIZE]);
+#endif
     return g_threads[next].ctx;
 }
 
@@ -128,11 +114,11 @@ _Noreturn void sched_exit(void) {
 _Noreturn void sched_start(void) {
     serial_println("sched: starting");
 
-    // This will switch from the caller's context into the first thread.
-    // The caller's state will be saved in g_boot_ctx_ptr.
-    // sched_yield_now();
+#if defined (__x86_64__)
+    __asm__ volatile ("int $0x30"); // @TODO: replace this by a proper thread yield syscall or something
+#endif
 
-    // Should never reach here
+    // Should never reach here on x86_64
     for (;;) {
 #if defined (__x86_64__)
         asm ("hlt");

@@ -40,7 +40,14 @@ void interrupts_init(void) {
         idt[i].isr_low = (uint16_t) (isr & 0xFFFF);
         idt[i].kernel_cs = KERNEL_CODE_SEGMENT;
         idt[i].ist = 0; // No specific stack switching
-        idt[i].attributes = 0x8E; // Present, Ring 0, Interrupt Gate
+        uint8_t attributes;
+        if (i == SYSCALL_INTERRUPT_NUMBER) {
+            // Allow to be manually triggerred from ring 3
+            attributes = 0xEE;
+        } else {
+            attributes = 0x8E; // Present, Ring 0, Interrupt Gate
+        }
+        idt[i].attributes = attributes;
         idt[i].isr_mid = (uint16_t) ((isr >> 16) & 0xFFFF);
         idt[i].isr_high = (uint32_t) ((isr >> 32) & 0xFFFFFFFF);
         idt[i].reserved = 0;
@@ -113,6 +120,11 @@ uintptr_t x86_64_interrupt_dispatcher(struct interrupt_frame *frame) {
     if (0x30 <= frame->interrupt_number && frame->interrupt_number < 0x80) {
         // APIC interrupts
         lapic_eoi();
+    }
+
+    if (frame->interrupt_number == 0x80) {
+        // Syscall
+        serial_println("Syscall triggerred!");
     }
 
     return (uintptr_t) return_frame;

@@ -30,6 +30,35 @@ static uint64_t flags_to_x86(vmm_flags_t flags) {
     return x86_flags;
 }
 
+/**
+ * Creates a new VMM context for a userspace process.
+ * Clones the kernel's high-memory mappings so the kernel stays visible.
+ */
+struct vmm_context vmm_context_create(void) {
+    struct vmm_context context = { .root = 0 };
+
+    // 1. Allocate a physical frame for the new PML4 (Level 4 Table)
+    uintptr_t pml4_phys = pmm_alloc_frame();
+    if (!pml4_phys) return context;
+
+    context.root = pml4_phys;
+    uint64_t* new_pml4 = (uint64_t*)get_vaddr(pml4_phys);
+    uint64_t* kernel_pml4 = (uint64_t*)get_vaddr(g_kernel_context.root);
+
+    // 2. Clear the lower half (Userspace: 0x0000000000000000 - 0x00007FFFFFFFFFFF)
+    // This covers PML4 entries 0 to 255.
+    memset(new_pml4, 0, 256 * sizeof(uint64_t));
+
+    // 3. Clone the upper half (Kernel: 0xFFFF800000000000 - 0xFFFFFFFFFFFFFFFF)
+    // This covers PML4 entries 256 to 511.
+    // By copying these pointers, the new context shares the kernel's PDPTs/PDs.
+    for (int i = 256; i < 512; i++) {
+        new_pml4[i] = kernel_pml4[i];
+    }
+
+    return context;
+}
+
 void vmm_init(uint64_t hhdm_offset) {
     g_hhdm_offset = hhdm_offset;
 
@@ -47,17 +76,23 @@ bool vmm_map_page(struct vmm_context *context, uintptr_t virt, uintptr_t phys, v
 
     for (int i = 0; i < 3; i++) {
         int idx = (virt >> shifts[i]) & 0x1FF;
+
         if (!(table[idx] & X86_PTE_PRESENT)) {
             uintptr_t new_table_phys = pmm_alloc_frame();
             if (!new_table_phys) return false;
 
-            // Note: Use your implemented memset here!
             memset(get_vaddr(new_table_phys), 0, VMM_PAGE_SIZE);
 
-            // Link the new table. Intermediate levels need P and W
-            // to allow the leaf entry to control permissions.
+            // INITIAL LINK: We set PRESENT and WRITE here.
+            // But we MUST set USER here if the final target is a user page.
             table[idx] = new_table_phys | X86_PTE_PRESENT | X86_PTE_WRITE;
         }
+
+        // UPDATE PARENT BITS: If the mapping we are creating is USER or WRITE,
+        // we must ensure the existing parent entry also allows it.
+        if (flags & VMM_FLAG_USER)  table[idx] |= X86_PTE_USER;
+        if (flags & VMM_FLAG_WRITE) table[idx] |= X86_PTE_WRITE;
+
         table = get_vaddr(table[idx] & X86_ADDR_MASK);
     }
 

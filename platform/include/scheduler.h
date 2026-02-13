@@ -5,7 +5,7 @@
 
 void sched_init(void);
 
-int sched_create(thread_fn_t fn, void *arg);
+int sched_create(thread_fn_t fn, void *arg, bool is_user_space);
 
 _Noreturn void sched_start(void);
 

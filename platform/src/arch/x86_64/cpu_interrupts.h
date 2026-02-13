@@ -4,8 +4,12 @@
 
 #include "interrupts.h"
 
+#define SYSCALL_INTERRUPT_NUMBER 0x80
+
 struct interrupt_frame {
     // Pushed LAST in NASM (lowest address)
+    uint64_t cr3;
+
     uint64_t r15, r14, r13, r12, r11, r10, r9, r8;
     uint64_t rbp, rsi, rdi, rdx, rcx, rbx, rax;
     // ^ rax was pushed FIRST among these, so it is at the highest address here

@@ -167,6 +167,26 @@ static void thread_keyboard(void *arg) {
     }
 }
 
+__attribute__((naked, aligned(4096)))
+void primitive_user_code(void *arg) {
+    // We use inline assembly to ensure NO calls to kernel functions are made.
+    __asm__ volatile (
+        "1:\n"
+        "nop\n"
+#if defined(__x86_64__)
+        "int $0x80\n"
+        "pause\n"
+        "jmp 1b\n"
+#elif defined(__aarch64__)
+        "svc 0\n" // Supervisor Call (Syscall)
+        "yield\n" // Yield hint (similar to pause)
+        "b 1b\n" // Branch back to label 1
+#else
+#error "Architecture not supported"
+#endif
+    );
+}
+
 __attribute__((used)) void boot(void) {
     // Ensure the bootloader actually understands our base revision (see spec).
     if (LIMINE_BASE_REVISION_SUPPORTED(limine_base_revision) == false) {
@@ -257,8 +277,9 @@ __attribute__((used)) void boot(void) {
 
     sched_init();
 
-    (void) sched_create(thread_heartbeat, NULL);
-    (void) sched_create(thread_keyboard, NULL);
+    (void) sched_create(thread_heartbeat, NULL, false);
+    (void) sched_create(thread_keyboard, NULL, false);
+    (void) sched_create(primitive_user_code, NULL, true);
 
     serial_println("Initializing timer...");
     timer_init(100);

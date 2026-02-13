@@ -4,6 +4,7 @@
 
 #include "gic.h"
 #include "stddef.h"
+#include "terminal.h"
 #include "drivers/serial.h"
 
 extern void *exception_vector_table;
@@ -103,6 +104,7 @@ uintptr_t handle_sync_exception(struct interrupt_frame *frame) {
 
     if (ec == EC_SYSCALL) {
         serial_println("Caught Syscall");
+        terminal_println("Caught Syscall!");
         return (uintptr_t) frame;
     }
 

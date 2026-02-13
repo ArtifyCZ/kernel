@@ -4,7 +4,7 @@ default: help
 -include local.mk
 
 # --- Toolchain Configuration ---
-ARCH := x86_64
+ARCH := aarch64
 CC := clang
 LD := ld.lld
 NASM := nasm
@@ -117,6 +117,7 @@ ifeq ($(ARCH),x86_64)
 QEMU_IMAGE := $(BUILD)/kernel.$(ARCH).iso
 
 QEMUFLAGS += -cdrom $(QEMU_IMAGE)
+#QEMUFLAGS += -d int,cpu_reset
 QEMUFLAGS += -serial stdio
 
 else ifeq ($(ARCH),aarch64)

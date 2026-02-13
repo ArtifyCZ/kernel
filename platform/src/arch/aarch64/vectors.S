@@ -47,10 +47,10 @@ exception_vector_table:
 
 /* --- Context Saving Macro --- */
 .macro push_context
-    /* 272 bytes = (34 registers * 8 bytes).
-       Includes x0-x30, SPSR, ELR, ESR.
+    /* 288 bytes = (36 registers * 8 bytes).
+       Includes x0-x30, SP_EL0, TTBR0, SPSR, ELR, ESR.
        Already 16-byte aligned. */
-    sub sp, sp, #272
+    sub sp, sp, #288
 
     stp x0, x1, [sp, #0]
     stp x2, x3, [sp, #16]
@@ -68,13 +68,17 @@ exception_vector_table:
     stp x26, x27, [sp, #208]
     stp x28, x29, [sp, #224]
 
-    mrs x0, spsr_el1
-    mrs x1, elr_el1
-    mrs x2, esr_el1
+    mrs x0, sp_el0 /* Grab the user stack pointer */
+    mrs x1, ttbr0_el1
+    mrs x2, spsr_el1
+    mrs x3, elr_el1
+    mrs x4, esr_el1
     str x30, [sp, #240]
-    str x0,  [sp, #248]
-    str x1,  [sp, #256]
-    str x2,  [sp, #264]
+    str x0,  [sp, #248] /* sp_el0 */
+    str x1,  [sp, #256] /* ttbr0 */
+    str x2,  [sp, #264] /* spsr */
+    str x3,  [sp, #272] /* elr */
+    str x4,  [sp, #280] /* esr */
 
     mov x0, sp /* Frame pointer as 1st arg for C */
 .endm
@@ -82,10 +86,15 @@ exception_vector_table:
 /* --- Context Restoration Macro --- */
 .macro pop_context
     /* Restore control registers */
-    ldr x0, [sp, #248]
-    ldr x1, [sp, #256]
-    msr spsr_el1, x0
-    msr elr_el1, x1
+    ldr x0, [sp, #248] /* sp_el0 */
+    ldr x1, [sp, #256] /* ttbr0 */
+    ldr x2, [sp, #264] /* spsr */
+    ldr x3, [sp, #272] /* elr */
+    msr sp_el0, x0 /* Restore the user stack pointer */
+    msr ttbr0_el1, x1 /* Switch page tables */
+    isb /* Instruction Barrier to ensure MMU is ready */
+    msr spsr_el1, x2
+    msr elr_el1, x3
 
     /* Restore general purpose registers */
     ldp x0, x1, [sp, #0]
@@ -105,7 +114,7 @@ exception_vector_table:
     ldp x28, x29, [sp, #224]
     ldr x30, [sp, #240]
 
-    add sp, sp, #272
+    add sp, sp, #288
     eret
 .endm
 

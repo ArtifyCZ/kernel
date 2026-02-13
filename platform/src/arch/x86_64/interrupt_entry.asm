@@ -35,9 +35,17 @@ common_stub:
     push r14
     push r15
 
+    ; Save the current pages table address
+    mov rax, cr3
+    push rax
+
     mov rdi, rsp        ; Pass the stack pointer as the interrupt_frame pointer
     call x86_64_interrupt_dispatcher
     mov rsp, rax        ; Switch stack to the returned one from the dispatcher
+
+    ; Restore the pages table address
+    pop rax
+    mov cr3, rax
 
     ; Restore registers
     pop r15
