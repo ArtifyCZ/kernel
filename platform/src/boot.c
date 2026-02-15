@@ -10,6 +10,7 @@
 #include "physical_memory_manager.h"
 #include "psf.h"
 #include "scheduler.h"
+#include "syscalls.h"
 #include "drivers/serial.h"
 #include "terminal.h"
 #include "ticker.h"
@@ -225,15 +226,9 @@ __attribute__((used)) void boot(void) {
     interrupts_init();
     serial_println("Interrupts initialized!");
 
-    serial_println("Trying to invoke an interrupt (syscall)");
-#if defined (__x86_64__)
-    __asm__ volatile ("int $0x80");
-#elif defined (__aarch64__) || defined (__riscv)
-    __asm__ volatile ("svc 0");
-#else
-#error Architecture not supported
-#endif
-    serial_println("Interrupt invoked successfully!");
+    serial_println("Initializing syscalls...");
+    syscalls_init();
+    serial_println("Syscalls initialized!");
 
 #if defined (__x86_64__)
     serial_println("Initializing ACPI...");

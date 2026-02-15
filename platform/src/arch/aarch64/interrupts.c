@@ -4,6 +4,7 @@
 
 #include "gic.h"
 #include "stddef.h"
+#include "syscalls_priv.h"
 #include "terminal.h"
 #include "drivers/serial.h"
 
@@ -103,9 +104,9 @@ uintptr_t handle_sync_exception(struct interrupt_frame *frame) {
     uint32_t ec = (frame->esr >> 26) & 0x3F;
 
     if (ec == EC_SYSCALL) {
-        serial_println("Caught Syscall");
-        terminal_println("Caught Syscall!");
-        return (uintptr_t) frame;
+        struct interrupt_frame *return_frame = frame;
+        syscalls_interrupt_handler(&return_frame);
+        return (uintptr_t) return_frame;
     }
 
     uint64_t far;

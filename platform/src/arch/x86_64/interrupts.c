@@ -122,10 +122,5 @@ uintptr_t x86_64_interrupt_dispatcher(struct interrupt_frame *frame) {
         lapic_eoi();
     }
 
-    if (frame->interrupt_number == 0x80) {
-        // Syscall
-        serial_println("Syscall triggerred!");
-    }
-
     return (uintptr_t) return_frame;
 }
