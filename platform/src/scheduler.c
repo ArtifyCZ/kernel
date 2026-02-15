@@ -3,6 +3,7 @@
 #include "drivers/serial.h"
 #include "stdbool.h"
 #include "interrupts.h"
+#include "physical_memory_manager.h"
 #include "stddef.h"
 #include "arch/x86_64/gdt.h"
 
@@ -46,7 +47,32 @@ static int pick_next_runnable(void) {
     return -1;
 }
 
-int sched_create(thread_fn_t fn, void *arg, bool is_user_space) {
+int sched_create_user(struct vmm_context *user_ctx, uintptr_t entrypoint_vaddr) {
+    interrupts_disable();
+
+    int idx = -1;
+    for (int i = 0; i < MAX_THREADS; i++) {
+        if (g_threads[i].state == T_UNUSED) {
+            idx = i;
+            break;
+        }
+    }
+
+    if (idx < 0) {
+        interrupts_enable();
+        return -1;
+    }
+
+    struct thread *t = &g_threads[idx];
+    uintptr_t kernel_stack_top = (uintptr_t) &t->stack[STACK_SIZE];
+    t->ctx = thread_setup_user(user_ctx, entrypoint_vaddr, kernel_stack_top);
+    t->state = T_RUNNABLE;
+
+    interrupts_enable();
+    return idx;
+}
+
+int sched_create_kernel(thread_fn_t fn, void *arg) {
     interrupts_disable();
 
     int idx = -1;
@@ -67,7 +93,7 @@ int sched_create(thread_fn_t fn, void *arg, bool is_user_space) {
 
     // Use the agnostic thread_setup.
     // It returns the pointer to the context it carved out of the stack.
-    t->ctx = thread_setup(stack_top, fn, arg, is_user_space);
+    t->ctx = thread_setup_kernel(stack_top, fn, arg);
     t->state = T_RUNNABLE;
 
     interrupts_enable();

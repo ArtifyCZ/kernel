@@ -5,14 +5,10 @@
 #include "string.h"
 #include "virtual_memory_manager.h"
 
-#define USER_SPACE_CODE 0x400000
-#define USER_SPACE_STACK 0x7FFFFFFFF000
-
-struct thread_ctx *thread_setup(
-    uintptr_t kernel_stack_top,
-    thread_fn_t fn,
-    void *arg,
-    bool is_user_space
+struct thread_ctx *thread_setup_user(
+    struct vmm_context *user_ctx,
+    const uintptr_t entrypoint_vaddr,
+    const uintptr_t kernel_stack_top
 ) {
     uintptr_t sp = (kernel_stack_top & ~0xFULL) - sizeof(struct interrupt_frame);
     struct interrupt_frame *frame = (struct interrupt_frame *) sp;
@@ -20,51 +16,45 @@ struct thread_ctx *thread_setup(
     // Zero the frame
     memset(frame, 0, sizeof(struct interrupt_frame));
 
-    if (is_user_space) {
-        // --- Userspace Path ---
-        // SPSR_EL1:
-        // M[3:0] = 0000 (Return to EL0t)
-        // Bit 6,7,8,9 = 0 (Unmask Debug, SError, IRQ, FIQ)
-        frame->spsr = 0x00;
+    uintptr_t user_stack_top = 0x7FFFFFFFF000; // @TODO: add rather some logic for choosing the stack address
+    for (size_t i = 0; i < 4; i++) {
+        // Allocate and map 4 pages for stack
+        uintptr_t page_virt = user_stack_top - (i + 1) * VMM_PAGE_SIZE;
+        uintptr_t page_phys = pmm_alloc_frame();
 
-        struct vmm_context user_ctx = vmm_context_create();
-
-        // Point to our User Virtual Addresses
-        frame->ttbr0 = user_ctx.root;
-        frame->elr = USER_SPACE_CODE;
-        frame->sp_el0 = USER_SPACE_STACK;
-
-        // Pass 'arg' via x0 (Standard ARM calling convention)
-        frame->x[0] = (uintptr_t) arg;
-
-        // VMM: Map the kernel function 'fn' to user space (similar to x86)
-        // Ensure you use aarch64 specific flags (User Accessible, Execute allowed)
-        vmm_map_page(
-            &user_ctx,
-            USER_SPACE_CODE,
-            vmm_translate(&g_kernel_context, (uintptr_t) fn),
-            VMM_FLAG_PRESENT | VMM_FLAG_USER | VMM_FLAG_EXEC
-        );
-
-        // VMM: Map User Stack
-        vmm_map_page(
-            &user_ctx,
-            USER_SPACE_STACK - 0x1000,
-            pmm_alloc_frame(),
-            VMM_FLAG_PRESENT | VMM_FLAG_USER | VMM_FLAG_WRITE
-        );
-    } else {
-        // --- Kernel Path ---
-        // SPSR_EL1: M[3:0] = 0101 (Return to EL1h)
-        frame->spsr = 0x05;
-        frame->elr = (uintptr_t) arch_thread_entry;
-        frame->ttbr0 = 0x0; // ttbr0 is used only in EL0, not EL1 (user-space vs. kernel)
-
-        // Pass params into x19-x21 for your trampoline
-        frame->x[19] = (uintptr_t) arch_thread_entry; // Use your trampoline logic
-        frame->x[20] = (uintptr_t) fn;
-        frame->x[21] = (uintptr_t) arg;
+        vmm_map_page(user_ctx, page_virt, page_phys, VMM_FLAG_PRESENT | VMM_FLAG_USER | VMM_FLAG_WRITE);
     }
+
+    // SPSR_EL1:
+    // M[3:0] = 0000 (Return to EL0t)
+    // Bit 6,7,8,9 = 0 (Unmask Debug, SError, IRQ, FIQ)
+    frame->spsr = 0x00;
+
+    // Point to our User Virtual Addresses
+    frame->ttbr0 = user_ctx->root;
+    frame->elr = entrypoint_vaddr;
+    frame->sp_el0 = (user_stack_top & ~0xFULL);
+
+    return (struct thread_ctx *) sp;
+}
+
+struct thread_ctx *thread_setup_kernel(
+    uintptr_t kernel_stack_top,
+    thread_fn_t fn,
+    void *arg
+) {
+    uintptr_t sp = (kernel_stack_top & ~0xFULL) - sizeof(struct interrupt_frame);
+    struct interrupt_frame *frame = (struct interrupt_frame *) sp;
+
+    // Zero the frame
+    memset(frame, 0, sizeof(struct interrupt_frame));
+
+    // SPSR_EL1: M[3:0] = 0101 (Return to EL1h)
+    frame->spsr = 0x05 | (0 << 6) | (0 << 7);
+    frame->elr = (uintptr_t) fn;
+    frame->ttbr0 = g_kernel_context.root; // ttbr0 is used only in EL0, not EL1 (user-space vs. kernel)
+
+    frame->x[0] = (uintptr_t) arg;
 
     return (struct thread_ctx *) sp;
 }

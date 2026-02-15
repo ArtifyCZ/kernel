@@ -5,7 +5,9 @@
 
 void sched_init(void);
 
-int sched_create(thread_fn_t fn, void *arg, bool is_user_space);
+int sched_create_user(struct vmm_context *user_ctx, uintptr_t entrypoint_vaddr);
+
+int sched_create_kernel(thread_fn_t fn, void *arg);
 
 _Noreturn void sched_start(void);
 

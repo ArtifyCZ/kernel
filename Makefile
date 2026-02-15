@@ -4,7 +4,7 @@ default: help
 -include local.mk
 
 # --- Toolchain Configuration ---
-ARCH := aarch64
+ARCH := x86_64
 CC := clang
 LD := ld.lld
 NASM := nasm
@@ -58,6 +58,7 @@ MAKE_LIMINE += LDFLAGS=""
 MAKE_LIMINE += LIBS=""
 
 
+include init/Makefile
 include kernel/Makefile
 include platform/Makefile
 
@@ -68,12 +69,13 @@ $(BUILD)/kernel.$(ARCH).elf: $(BUILD) $(BUILD)/libplatform.$(ARCH).a $(BUILD)/li
 isofiles_dir := $(BUILD)/isofiles/$(ARCH)
 
 .PHONY: $(BUILD)/kernel.x86_64.iso
-$(BUILD)/kernel.x86_64.iso: $(BUILD)/kernel.$(ARCH).elf $(BUILD)/limine/limine $(BUILD)
+$(BUILD)/kernel.x86_64.iso: $(BUILD)/kernel.$(ARCH).elf $(BUILD)/init.$(ARCH).elf $(BUILD)/limine/limine $(BUILD)
 	mkdir -p $(isofiles_dir)/boot/limine/
 	cp -v limine.conf $(isofiles_dir)/boot/limine/
 	mkdir -p $(isofiles_dir)/EFI/BOOT
 
 	cp $(BUILD)/kernel.$(ARCH).elf $(isofiles_dir)/boot/kernel.elf
+	cp $(BUILD)/init.$(ARCH).elf $(isofiles_dir)/boot/init.elf
 	cp Mik_8x16.psf $(isofiles_dir)/boot/kernel-font.psf
 
 	cp -v $(BUILD)/limine/limine-bios.sys $(BUILD)/limine/limine-bios-cd.bin $(BUILD)/limine/limine-uefi-cd.bin $(isofiles_dir)/boot/limine/
@@ -87,7 +89,7 @@ $(BUILD)/kernel.x86_64.iso: $(BUILD)/kernel.$(ARCH).elf $(BUILD)/limine/limine $
 	$(BUILD)/limine/limine bios-install $(BUILD)/kernel.$(ARCH).iso
 
 .PHONY: $(BUILD)/kernel.aarch64.img
-$(BUILD)/kernel.aarch64.img: $(BUILD)/kernel.$(ARCH).elf $(BUILD)/limine/limine $(BUILD)
+$(BUILD)/kernel.aarch64.img: $(BUILD)/kernel.$(ARCH).elf $(BUILD)/init.$(ARCH).elf $(BUILD)/limine/limine $(BUILD)
 	(rm -rf $(BUILD)/kernel.aarch64.img || true)
 	dd if=/dev/zero of=$@ bs=1M count=64
 	mformat -i $@ ::
@@ -95,6 +97,7 @@ $(BUILD)/kernel.aarch64.img: $(BUILD)/kernel.$(ARCH).elf $(BUILD)/limine/limine 
 	mcopy -i $@ $(BUILD)/limine/BOOTAA64.EFI ::/EFI/BOOT/
 	mcopy -i $@ $(srctree)/limine.conf ::/boot/limine/
 	mcopy -i $@ $(BUILD)/kernel.$(ARCH).elf ::/boot/kernel.elf
+	mcopy -i $@ $(BUILD)/init.$(ARCH).elf ::/boot/init.elf
 	mcopy -i $@ $(srctree)/Mik_8x16.psf ::/boot/kernel-font.psf
 
 
