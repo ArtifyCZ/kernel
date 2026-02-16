@@ -6,6 +6,7 @@ fn main() {
     let target = env::var("TARGET").unwrap();
 
     let headers = [
+        ("../platform/include/drivers/keyboard.h", "drivers/keyboard.rs"),
         ("../platform/include/drivers/serial.h", "drivers/serial.rs"),
         ("../platform/include/elf.h", "elf.rs"),
         ("../platform/include/modules.h", "modules.rs"),

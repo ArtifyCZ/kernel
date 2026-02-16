@@ -265,10 +265,6 @@ __attribute__((used)) void boot(void) {
     timer_init(100);
     serial_println("Timer initialized!");
 
-    serial_println("Initializing keyboard...");
-    keyboard_init();
-    serial_println("Keyboard initialized!");
-
     kernel_main();
 
     // We're done, just hang...

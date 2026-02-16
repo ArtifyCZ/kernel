@@ -8,6 +8,7 @@ mod entrypoint;
 mod platform;
 mod spin_lock;
 
+use crate::platform::drivers::keyboard::KeyboardDriver;
 use alloc::ffi::CString;
 use alloc::string::ToString;
 use core::str::FromStr;
@@ -39,6 +40,8 @@ use crate::platform::virtual_memory_manager_context::VirtualMemoryManagerContext
 fn main() {
     unsafe {
         SerialDriver::println("Hello from Rust!");
+
+        KeyboardDriver::init();
 
         Ticker::init();
 
