@@ -2,7 +2,9 @@ use crate::platform::memory_layout::PAGE_FRAME_SIZE;
 use crate::platform::physical_memory_manager::PhysicalMemoryManager;
 use crate::platform::virtual_address::VirtualAddress;
 use crate::platform::virtual_address_allocator::VirtualAddressAllocator;
-use crate::platform::virtual_memory_manager_context::VirtualMemoryManagerContext;
+use crate::platform::virtual_memory_manager_context::{
+    VirtualMemoryManagerContext, VirtualMemoryMappingFlags,
+};
 use crate::platform::virtual_page_address::VirtualPageAddress;
 use crate::serial_println;
 use crate::spin_lock::SpinLock;
@@ -59,7 +61,6 @@ unsafe impl GlobalAlloc for Allocator {
                 }
             }
 
-
             let new_page = unsafe {
                 PhysicalMemoryManager::alloc_frame()
                     .expect("Failed to allocate physical page frame")
@@ -81,7 +82,15 @@ unsafe impl GlobalAlloc for Allocator {
                 return null_mut();
             }
 
-            if unsafe { vmm_context.map_page(next_virt_page_addr, new_page) }.is_err() {
+            if unsafe {
+                vmm_context.map_page(
+                    next_virt_page_addr,
+                    new_page,
+                    VirtualMemoryMappingFlags::PRESENT | VirtualMemoryMappingFlags::WRITE,
+                )
+            }
+            .is_err()
+            {
                 unsafe { serial_println(b"Failed to map page\n\0".as_ptr() as *const c_char) };
                 return null_mut();
             }

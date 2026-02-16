@@ -1,3 +1,4 @@
+use bitflags::bitflags;
 use crate::platform::physical_page_frame::{PhysicalPageFrame, PhysicalPageFrameParseError};
 use crate::platform::virtual_page_address::VirtualPageAddress;
 
@@ -6,6 +7,17 @@ mod bindings {
 }
 
 pub(super) const VMM_PAGE_SIZE: usize = bindings::VMM_PAGE_SIZE as usize;
+
+bitflags! {
+    pub struct VirtualMemoryMappingFlags: u32 {
+        const PRESENT = bindings::vmm_flags_t_VMM_FLAG_PRESENT;
+        const WRITE = bindings::vmm_flags_t_VMM_FLAG_WRITE;
+        const USER = bindings::vmm_flags_t_VMM_FLAG_USER;
+        const EXEC = bindings::vmm_flags_t_VMM_FLAG_EXEC;
+        const DEVICE = bindings::vmm_flags_t_VMM_FLAG_DEVICE;
+        const NO_CACHE = bindings::vmm_flags_t_VMM_FLAG_NOCACHE;
+    }
+}
 
 pub struct VirtualMemoryManagerContext {
     context: bindings::vmm_context,
@@ -20,19 +32,19 @@ impl VirtualMemoryManagerContext {
         }
     }
 
-    /// @TODO: add support for the flags
     /// @TODO: add better errors
     pub unsafe fn map_page(
         &mut self,
         virtual_page_address: VirtualPageAddress,
         physical_address: PhysicalPageFrame,
+        flags: VirtualMemoryMappingFlags,
     ) -> Result<(), ()> {
         if unsafe {
             bindings::vmm_map_page(
                 &raw mut self.context,
                 virtual_page_address.inner(),
                 physical_address.inner(),
-                bindings::vmm_flags_t_VMM_FLAG_PRESENT | bindings::vmm_flags_t_VMM_FLAG_WRITE,
+                flags.bits(),
             )
         } {
             Ok(())
