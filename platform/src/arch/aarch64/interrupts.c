@@ -5,7 +5,6 @@
 #include "gic.h"
 #include "stddef.h"
 #include "syscalls_priv.h"
-#include "terminal.h"
 #include "drivers/serial.h"
 
 extern void *exception_vector_table;
