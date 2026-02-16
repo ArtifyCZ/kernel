@@ -9,6 +9,12 @@ mod bindings {
 pub struct Scheduler;
 
 impl Scheduler {
+    pub unsafe fn init() {
+        unsafe {
+            bindings::sched_init();
+        }
+    }
+
     pub unsafe fn start() -> ! {
         loop {
             unsafe {

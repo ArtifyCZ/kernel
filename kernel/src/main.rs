@@ -73,6 +73,8 @@ fn main(hhdm_offset: u64) {
 
         Ticker::init();
 
+        Scheduler::init();
+
         Scheduler::create_kernel(thread_heartbeat);
         Scheduler::create_kernel(thread_keyboard);
 

@@ -1,14 +1,13 @@
+#include "boot.h"
+
 #include <stdint.h>
 #include <stddef.h>
 #include <stdbool.h>
 #include <limine.h>
 #include "interrupts.h"
-#include "boot.h"
-
 #include "modules.h"
 #include "physical_memory_manager.h"
 #include "psf.h"
-#include "scheduler.h"
 #include "syscalls.h"
 #include "drivers/serial.h"
 #include "terminal.h"
@@ -220,10 +219,9 @@ __attribute__((used)) void boot(void) {
 
     terminal_println("Hello world!");
 
-    sched_init();
-
     kernel_main(g_hhdm_offset);
 
-    // We're done, just hang...
+    serial_println("=== KERNEL PANIC ===");
+    serial_println("kernel_main function has returned");
     hcf();
 }
