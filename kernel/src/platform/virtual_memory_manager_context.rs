@@ -31,6 +31,18 @@ impl VirtualMemoryManagerContext {
             }
         }
     }
+    
+    pub unsafe fn create() -> VirtualMemoryManagerContext {
+        unsafe {
+            VirtualMemoryManagerContext {
+                context: bindings::vmm_context_create(),
+            }
+        }
+    }
+    
+    pub(super) unsafe fn inner_mut(&mut self) -> &mut bindings::vmm_context {
+        &mut self.context
+    }
 
     /// @TODO: add better errors
     pub unsafe fn map_page(

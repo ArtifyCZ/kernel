@@ -4,7 +4,9 @@ macro_rules! include_bindings {
     };
 }
 
+pub mod elf;
 pub mod memory_layout;
+pub mod modules;
 pub mod physical_memory_manager;
 pub mod physical_page_frame;
 pub mod scheduler;

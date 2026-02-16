@@ -259,16 +259,8 @@ __attribute__((used)) void boot(void) {
     elf_init(g_hhdm_offset);
     serial_println("ELF loader initialized!");
 
-    serial_println("Loading init.elf...");
-    const struct limine_file *init_elf = module_find("init.elf");
-    struct vmm_context init_ctx = vmm_context_create();
-    uintptr_t init_entrypoint_vaddr;
-    elf_load(&init_ctx, init_elf->address, &init_entrypoint_vaddr);
-    serial_println("init.elf loaded!");
-
     (void) sched_create_kernel(thread_heartbeat, NULL);
     (void) sched_create_kernel(thread_keyboard, NULL);
-    (void) sched_create_user(&init_ctx, init_entrypoint_vaddr);
 
     serial_println("Initializing timer...");
     timer_init(100);
