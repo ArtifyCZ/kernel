@@ -4,7 +4,7 @@ default: help
 -include local.mk
 
 # --- Toolchain Configuration ---
-ARCH := aarch64
+ARCH ?= x86_64
 CC := clang
 LD := ld.lld
 NASM := nasm
