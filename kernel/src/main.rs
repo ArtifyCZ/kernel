@@ -38,10 +38,11 @@ use crate::platform::ticker::Ticker;
 use crate::platform::timer::Timer;
 use crate::platform::virtual_memory_manager_context::VirtualMemoryManagerContext;
 
-fn main() {
+fn main(hhdm_offset: u64) {
     unsafe {
         SerialDriver::println("Hello from Rust!");
 
+        Elf::init(hhdm_offset);
         Timer::init(100);
 
         KeyboardDriver::init();

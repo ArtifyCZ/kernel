@@ -7,6 +7,12 @@ mod bindings {
 pub struct Elf;
 
 impl Elf {
+    pub unsafe fn init(hhdm_offset: u64) {
+        unsafe {
+            bindings::elf_init(hhdm_offset as usize);
+        }
+    }
+
     pub unsafe fn load(vmm_ctx: &mut VirtualMemoryManagerContext, data: &[u8]) -> Option<usize> {
         unsafe {
             let ctx = core::mem::transmute(&raw mut *vmm_ctx.inner_mut());

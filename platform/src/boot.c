@@ -253,14 +253,10 @@ __attribute__((used)) void boot(void) {
 
     sched_init();
 
-    serial_println("Initializing ELF loader...");
-    elf_init(g_hhdm_offset);
-    serial_println("ELF loader initialized!");
-
     (void) sched_create_kernel(thread_heartbeat, NULL);
     (void) sched_create_kernel(thread_keyboard, NULL);
 
-    kernel_main();
+    kernel_main(g_hhdm_offset);
 
     // We're done, just hang...
     hcf();
