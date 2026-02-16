@@ -1,19 +1,21 @@
-use crate::platform::memory_layout::{KERNEL_HEAP_BASE, PAGE_FRAME_SIZE};
+use crate::platform::memory_layout::PAGE_FRAME_SIZE;
 use crate::platform::physical_memory_manager::PhysicalMemoryManager;
 use crate::platform::virtual_address::VirtualAddress;
-use crate::platform::virtual_memory_manager::VirtualMemoryManager;
+use crate::platform::virtual_address_allocator::VirtualAddressAllocator;
+use crate::platform::virtual_memory_manager_context::VirtualMemoryManagerContext;
 use crate::platform::virtual_page_address::VirtualPageAddress;
 use crate::serial_println;
+use crate::spin_lock::SpinLock;
 use core::alloc::{GlobalAlloc, Layout};
 use core::ffi::c_char;
 use core::ops::Add;
 use core::ptr::null_mut;
-use crate::platform::virtual_address_allocator::VirtualAddressAllocator;
-use crate::spin_lock::SpinLock;
 
 static mut NEXT_AVAILABLE_VIRTUAL_ADDRESS: Option<VirtualAddress> = None;
 
 static mut LAST_MAPPED_VIRTUAL_PAGE: Option<VirtualPageAddress> = None;
+
+static mut VMM_CONTEXT: Option<VirtualMemoryManagerContext> = None;
 
 static HEAP_LOCK: SpinLock = SpinLock::new();
 
@@ -30,9 +32,20 @@ impl Add<usize> for VirtualAddress {
     }
 }
 
+#[allow(static_mut_refs)]
 unsafe impl GlobalAlloc for Allocator {
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
-        HEAP_LOCK.lock();
+        let _ = HEAP_LOCK.lock();
+        let vmm_context = unsafe {
+            if let Some(ref mut vmm_context) = VMM_CONTEXT {
+                vmm_context
+            } else {
+                let vmm_context = VirtualMemoryManagerContext::get_kernel_context();
+                VMM_CONTEXT = Some(vmm_context);
+                VMM_CONTEXT.as_mut().unwrap_unchecked()
+            }
+        };
+
         loop {
             let next_available_virtual_address = unsafe { NEXT_AVAILABLE_VIRTUAL_ADDRESS };
             let last_mapped_virtual_page = unsafe { LAST_MAPPED_VIRTUAL_PAGE };
@@ -60,7 +73,7 @@ unsafe impl GlobalAlloc for Allocator {
                 }
             };
 
-            if unsafe { VirtualMemoryManager::translate(next_virt_page_addr) }
+            if unsafe { vmm_context.translate(next_virt_page_addr) }
                 .unwrap()
                 .is_some()
             {
@@ -68,7 +81,7 @@ unsafe impl GlobalAlloc for Allocator {
                 return null_mut();
             }
 
-            if unsafe { VirtualMemoryManager::map_page(next_virt_page_addr, new_page) }.is_err() {
+            if unsafe { vmm_context.map_page(next_virt_page_addr, new_page) }.is_err() {
                 unsafe { serial_println(b"Failed to map page\n\0".as_ptr() as *const c_char) };
                 return null_mut();
             }
@@ -95,7 +108,7 @@ unsafe impl GlobalAlloc for Allocator {
         }
     }
 
-    unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
+    unsafe fn dealloc(&self, _ptr: *mut u8, _layout: Layout) {
         // Do nothing for now
         // @TODO: implement deallocation as well
     }
