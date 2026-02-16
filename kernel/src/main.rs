@@ -34,6 +34,7 @@ use crate::platform::drivers::serial::SerialDriver;
 use crate::platform::elf::Elf;
 use crate::platform::modules::Modules;
 use crate::platform::scheduler::Scheduler;
+use crate::platform::terminal::Terminal;
 use crate::platform::ticker::Ticker;
 use crate::platform::timer::Timer;
 use crate::platform::virtual_memory_manager_context::VirtualMemoryManagerContext;
@@ -43,7 +44,7 @@ unsafe extern "C" fn thread_heartbeat(_args: *mut c_void) {
     loop {
         if i == 2000000 {
             unsafe {
-                SerialDriver::write(&[b'x']);
+                Terminal::print_char('.');
             }
             i = 0;
         }

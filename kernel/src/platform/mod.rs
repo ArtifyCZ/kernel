@@ -11,6 +11,7 @@ pub mod modules;
 pub mod physical_memory_manager;
 pub mod physical_page_frame;
 pub mod scheduler;
+pub mod terminal;
 pub mod ticker;
 pub mod timer;
 pub mod virtual_address;
