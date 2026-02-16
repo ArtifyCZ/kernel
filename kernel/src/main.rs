@@ -28,10 +28,12 @@ unsafe extern "C" {
 }
 
 pub(crate) use platform::serial_println;
+use crate::platform::scheduler::Scheduler;
 
 fn main() {
     unsafe {
         let message = CString::from_str("Hello from CString in Rust!").expect("Failed to create CString");
         serial_println(message.as_ptr());
+        Scheduler::start();
     }
 }

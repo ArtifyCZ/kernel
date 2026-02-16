@@ -8,6 +8,7 @@ fn main() {
     let headers = [
         ("../platform/include/drivers/serial.h", "drivers/serial.rs"),
         ("../platform/include/physical_memory_manager.h", "physical_memory_manager.rs"),
+        ("../platform/include/scheduler.h", "scheduler.rs"),
         ("../platform/include/virtual_address_allocator.h", "virtual_address_allocator.rs"),
         ("../platform/include/virtual_memory_manager.h", "virtual_memory_manager.rs"),
     ];

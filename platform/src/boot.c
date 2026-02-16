@@ -286,9 +286,7 @@ __attribute__((used)) void boot(void) {
     ticker_init();
     serial_println("Ticker enabled!");
 
-    sched_start();
-
-    // kernel_main();
+    kernel_main();
 
     // We're done, just hang...
     hcf();
