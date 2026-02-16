@@ -118,6 +118,20 @@ static void write_serial(char a) {
     uart_base[UART_DR] = (uint32_t) a;
 }
 
+void serial_write(const uint8_t byte) {
+    if (!uart_base) return;
+
+    if (byte == '\n') {
+        write_serial('\r');
+    }
+
+    while (!is_transmit_empty()) {
+        __asm__ volatile("yield");
+    }
+
+    uart_base[UART_DR] = (uint32_t) byte;
+}
+
 void serial_print(const char *message) {
     if (!message) return;
     for (size_t i = 0; message[i] != '\0'; i++) {

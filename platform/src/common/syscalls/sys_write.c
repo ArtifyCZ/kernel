@@ -3,13 +3,10 @@
 #include "drivers/serial.h"
 #include <stddef.h>
 
-static uint64_t do_serial_write(const char *buf, size_t count) {
-    char buffer[32];
+static uint64_t do_serial_write(const char *buf, const size_t count) {
     for (size_t i = 0; i < count; i++) {
-        buffer[i % 31] = buf[i];
-        if (i + 1 == count || i % 31 == 0) {
-            serial_print(buffer);
-        }
+        const uint8_t byte = buf[i];
+        serial_write(byte);
     }
 
     return 0;

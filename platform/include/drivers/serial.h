@@ -7,6 +7,8 @@
  */
 int serial_init(uintptr_t base);
 
+void serial_write(uint8_t byte);
+
 void serial_print(const char *message);
 
 void serial_println(const char *message);
