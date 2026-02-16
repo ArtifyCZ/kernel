@@ -16,7 +16,6 @@
 #include "virtual_memory_manager.h"
 #include "arch/x86_64/acpi.h"
 #include "arch/x86_64/gdt.h"
-#include "drivers/keyboard.h"
 
 // Set the base revision to 4, this is recommended as this is the latest
 // base revision described by the Limine boot protocol specification.
@@ -139,21 +138,6 @@ void try_virtual_mapping(void) {
     serial_println("VMM test: success!");
 }
 
-static void thread_keyboard(void *arg) {
-    (void) arg;
-
-    for (;;) {
-        char c;
-        if (!keyboard_get_char(&c)) {
-            // sched_yield_if_needed();
-            continue;
-        }
-
-        terminal_print_char(c);
-        // sched_yield_if_needed();
-    }
-}
-
 __attribute__((used)) void boot(void) {
     // Ensure the bootloader actually understands our base revision (see spec).
     if (LIMINE_BASE_REVISION_SUPPORTED(limine_base_revision) == false) {
@@ -237,8 +221,6 @@ __attribute__((used)) void boot(void) {
     terminal_println("Hello world!");
 
     sched_init();
-
-    (void) sched_create_kernel(thread_keyboard, NULL);
 
     kernel_main(g_hhdm_offset);
 

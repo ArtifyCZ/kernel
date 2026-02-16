@@ -52,6 +52,16 @@ unsafe extern "C" fn thread_heartbeat(_args: *mut c_void) {
     }
 }
 
+unsafe extern "C" fn thread_keyboard(_args: *mut c_void) {
+    loop {
+        unsafe {
+            if let Some(c) = KeyboardDriver::get_char() {
+                Terminal::print_char(c);
+            }
+        }
+    }
+}
+
 fn main(hhdm_offset: u64) {
     unsafe {
         SerialDriver::println("Hello from Rust!");
@@ -64,6 +74,7 @@ fn main(hhdm_offset: u64) {
         Ticker::init();
 
         Scheduler::create_kernel(thread_heartbeat);
+        Scheduler::create_kernel(thread_keyboard);
 
         {
             let init_elf_string = CString::from_str("init.elf").expect("Failed to create CString");
