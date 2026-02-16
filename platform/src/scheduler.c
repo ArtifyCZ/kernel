@@ -1,11 +1,8 @@
 #include "scheduler.h"
 
 #include "drivers/serial.h"
-#include "stdbool.h"
 #include "interrupts.h"
-#include "physical_memory_manager.h"
 #include "stddef.h"
-#include "arch/x86_64/gdt.h"
 
 #define MAX_THREADS  8
 #define STACK_SIZE   (16 * 1024)
@@ -116,9 +113,7 @@ struct thread_ctx *sched_heartbeat(struct thread_ctx *frame) {
         g_threads[prev].ctx = (void *) frame;
     }
     g_threads[next].state = T_RUNNING;
-#if defined (__x86_64__)
-    gdt_set_kernel_stack((uintptr_t)&g_threads[next].stack[STACK_SIZE]);
-#endif
+    thread_prepare_switch((uintptr_t)&g_threads[next].stack[STACK_SIZE]);
     return g_threads[next].ctx;
 }
 

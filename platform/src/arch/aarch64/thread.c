@@ -58,3 +58,7 @@ struct thread_ctx *thread_setup_kernel(
 
     return (struct thread_ctx *) sp;
 }
+
+void thread_prepare_switch(uintptr_t kernel_stack_top) {
+    // Do nothing
+}

@@ -20,3 +20,5 @@ struct thread_ctx *thread_setup_kernel(
     thread_fn_t fn,
     void *arg
 );
+
+void thread_prepare_switch(uintptr_t kernel_stack_top);

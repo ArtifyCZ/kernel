@@ -66,3 +66,7 @@ struct thread_ctx *thread_setup_kernel(
     // Return the new stack pointer for the scheduler to store
     return (struct thread_ctx *) sp;
 }
+
+void thread_prepare_switch(const uintptr_t kernel_stack_top) {
+    gdt_set_kernel_stack(kernel_stack_top);
+}
