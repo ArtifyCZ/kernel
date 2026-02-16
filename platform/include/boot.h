@@ -1,5 +1,7 @@
 #pragma once
 
+#include <stdint.h>
+
 // Halt and catch fire function.
 _Noreturn void hcf(void);
 
