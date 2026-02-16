@@ -4,6 +4,7 @@ macro_rules! include_bindings {
     };
 }
 
+pub mod drivers;
 pub mod elf;
 pub mod memory_layout;
 pub mod modules;
@@ -15,9 +16,3 @@ pub mod virtual_address;
 pub mod virtual_address_allocator;
 pub mod virtual_memory_manager_context;
 pub mod virtual_page_address;
-
-mod serial_bindings {
-    include_bindings!("drivers/serial.rs");
-}
-
-pub use serial_bindings::serial_println;

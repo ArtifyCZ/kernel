@@ -6,12 +6,12 @@ use crate::platform::virtual_memory_manager_context::{
     VirtualMemoryManagerContext, VirtualMemoryMappingFlags,
 };
 use crate::platform::virtual_page_address::VirtualPageAddress;
-use crate::serial_println;
 use crate::spin_lock::SpinLock;
 use core::alloc::{GlobalAlloc, Layout};
 use core::ffi::c_char;
 use core::ops::Add;
 use core::ptr::null_mut;
+use crate::platform::drivers::serial::SerialDriver;
 
 static mut NEXT_AVAILABLE_VIRTUAL_ADDRESS: Option<VirtualAddress> = None;
 
@@ -78,7 +78,7 @@ unsafe impl GlobalAlloc for Allocator {
                 .unwrap()
                 .is_some()
             {
-                unsafe { serial_println(b"Page already mapped\n\0".as_ptr() as *const c_char) };
+                unsafe { SerialDriver::write(b"Page already mapped\n") };
                 return null_mut();
             }
 
@@ -91,7 +91,7 @@ unsafe impl GlobalAlloc for Allocator {
             }
             .is_err()
             {
-                unsafe { serial_println(b"Failed to map page\n\0".as_ptr() as *const c_char) };
+                unsafe { SerialDriver::write(b"Failed to map page\n") };
                 return null_mut();
             }
 
@@ -109,7 +109,7 @@ unsafe impl GlobalAlloc for Allocator {
                 let ptr = next_available_virtual_address.inner() as *mut u8;
                 NEXT_AVAILABLE_VIRTUAL_ADDRESS =
                     Some(next_available_virtual_address + layout.size());
-                serial_println(b"Allocated memory successfully!\n\0".as_ptr() as *const c_char);
+                SerialDriver::write(b"Allocated memory successfully!\n");
                 ptr
             } else {
                 null_mut()

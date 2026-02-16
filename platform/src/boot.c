@@ -269,10 +269,6 @@ __attribute__((used)) void boot(void) {
     keyboard_init();
     serial_println("Keyboard initialized!");
 
-    serial_println("Enabling interrupts...");
-    interrupts_enable();
-    serial_println("Interrupts enabled!");
-
     kernel_main();
 
     // We're done, just hang...

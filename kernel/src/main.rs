@@ -9,14 +9,16 @@ mod platform;
 mod spin_lock;
 
 use alloc::ffi::CString;
-use core::ffi::{c_char, CStr};
+use alloc::string::ToString;
 use core::str::FromStr;
 
 #[panic_handler]
 #[cfg(not(test))]
-fn panic(_: &::core::panic::PanicInfo) -> ! {
+fn panic(info: &::core::panic::PanicInfo) -> ! {
     unsafe {
-        serial_println(b"Panic occurred; cannot print the message yet\0".as_ptr() as *const c_char);
+        SerialDriver::write(b"Panic occurred, attempting to print message:\n");
+        let message = info.to_string();
+        SerialDriver::println(&message);
         hcf()
     }
 }
@@ -27,7 +29,7 @@ unsafe extern "C" {
     fn hcf() -> !;
 }
 
-pub(crate) use platform::serial_println;
+use crate::platform::drivers::serial::SerialDriver;
 use crate::platform::elf::Elf;
 use crate::platform::modules::Modules;
 use crate::platform::scheduler::Scheduler;
@@ -36,8 +38,7 @@ use crate::platform::virtual_memory_manager_context::VirtualMemoryManagerContext
 
 fn main() {
     unsafe {
-        let message = CString::from_str("Hello from CString in Rust!").expect("Failed to create CString");
-        serial_println(message.as_ptr());
+        SerialDriver::println("Hello from Rust!");
 
         Ticker::init();
 
