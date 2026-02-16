@@ -10,6 +10,7 @@ pub mod modules;
 pub mod physical_memory_manager;
 pub mod physical_page_frame;
 pub mod scheduler;
+pub mod ticker;
 pub mod virtual_address;
 pub mod virtual_address_allocator;
 pub mod virtual_memory_manager_context;

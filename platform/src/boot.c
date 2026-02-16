@@ -13,7 +13,6 @@
 #include "syscalls.h"
 #include "drivers/serial.h"
 #include "terminal.h"
-#include "ticker.h"
 #include "timer.h"
 #include "virtual_address_allocator.h"
 #include "virtual_memory_manager.h"
@@ -273,10 +272,6 @@ __attribute__((used)) void boot(void) {
     serial_println("Enabling interrupts...");
     interrupts_enable();
     serial_println("Interrupts enabled!");
-
-    serial_println("Enabling ticker...");
-    ticker_init();
-    serial_println("Ticker enabled!");
 
     kernel_main();
 
