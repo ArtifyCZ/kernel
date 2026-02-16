@@ -1,3 +1,4 @@
+use crate::platform::drivers::serial::SerialDriver;
 use crate::platform::memory_layout::PAGE_FRAME_SIZE;
 use crate::platform::physical_memory_manager::PhysicalMemoryManager;
 use crate::platform::virtual_address::VirtualAddress;
@@ -8,10 +9,8 @@ use crate::platform::virtual_memory_manager_context::{
 use crate::platform::virtual_page_address::VirtualPageAddress;
 use crate::spin_lock::SpinLock;
 use core::alloc::{GlobalAlloc, Layout};
-use core::ffi::c_char;
 use core::ops::Add;
 use core::ptr::null_mut;
-use crate::platform::drivers::serial::SerialDriver;
 
 static mut NEXT_AVAILABLE_VIRTUAL_ADDRESS: Option<VirtualAddress> = None;
 
@@ -37,6 +36,7 @@ impl Add<usize> for VirtualAddress {
 #[allow(static_mut_refs)]
 unsafe impl GlobalAlloc for Allocator {
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
+        let layout = layout.pad_to_align();
         let _ = HEAP_LOCK.lock();
         let vmm_context = unsafe {
             if let Some(ref mut vmm_context) = VMM_CONTEXT {

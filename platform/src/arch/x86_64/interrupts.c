@@ -92,6 +92,11 @@ uintptr_t x86_64_interrupt_dispatcher(struct interrupt_frame *frame) {
         serial_print("Error code received: ");
         serial_print_hex_u64(frame->error_code);
         serial_println("");
+        serial_print("CR2: ");
+        uintptr_t cr2;
+        // retrieve the CR2 value
+        __asm__ volatile("mov %0, %%cr2" : : "r"(cr2));
+        serial_print_hex_u64(cr2);
         hcf();
     }
     struct interrupt_frame *return_frame = frame;

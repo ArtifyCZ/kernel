@@ -62,6 +62,10 @@ void pmm_init(struct limine_memmap_response *memmap) {
             push_page_frame(addr);
         }
     }
+
+    serial_print("Initialized physical memory manager with ");
+    serial_print_hex_u64(page_frames_count);
+    serial_println(" page frames");
 }
 
 uintptr_t pmm_alloc_frame(void) {

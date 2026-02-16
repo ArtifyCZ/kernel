@@ -1,6 +1,5 @@
 #include "ticker.h"
 
-#include "scheduler.h"
 #include "stddef.h"
 #include "timer.h"
 #include "drivers/serial.h"
