@@ -5,7 +5,6 @@
 #include "interrupts.h"
 #include "boot.h"
 
-#include "elf.h"
 #include "modules.h"
 #include "physical_memory_manager.h"
 #include "psf.h"
@@ -140,20 +139,6 @@ void try_virtual_mapping(void) {
     serial_println("VMM test: success!");
 }
 
-static void thread_heartbeat(void *arg) {
-    (void) arg;
-
-    terminal_println("Heartbeat kernel thread!");
-
-    for (;;) {
-        for (size_t i = 0; i < 2000000; i++) {
-        }
-
-        terminal_print_char('.');
-        // sched_yield_if_needed();
-    }
-}
-
 static void thread_keyboard(void *arg) {
     (void) arg;
 
@@ -253,7 +238,6 @@ __attribute__((used)) void boot(void) {
 
     sched_init();
 
-    (void) sched_create_kernel(thread_heartbeat, NULL);
     (void) sched_create_kernel(thread_keyboard, NULL);
 
     kernel_main(g_hhdm_offset);
