@@ -13,7 +13,6 @@
 #include "syscalls.h"
 #include "drivers/serial.h"
 #include "terminal.h"
-#include "timer.h"
 #include "virtual_address_allocator.h"
 #include "virtual_memory_manager.h"
 #include "arch/x86_64/acpi.h"
@@ -260,10 +259,6 @@ __attribute__((used)) void boot(void) {
 
     (void) sched_create_kernel(thread_heartbeat, NULL);
     (void) sched_create_kernel(thread_keyboard, NULL);
-
-    serial_println("Initializing timer...");
-    timer_init(100);
-    serial_println("Timer initialized!");
 
     kernel_main();
 

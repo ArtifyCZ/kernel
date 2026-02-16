@@ -35,11 +35,14 @@ use crate::platform::elf::Elf;
 use crate::platform::modules::Modules;
 use crate::platform::scheduler::Scheduler;
 use crate::platform::ticker::Ticker;
+use crate::platform::timer::Timer;
 use crate::platform::virtual_memory_manager_context::VirtualMemoryManagerContext;
 
 fn main() {
     unsafe {
         SerialDriver::println("Hello from Rust!");
+
+        Timer::init(100);
 
         KeyboardDriver::init();
 

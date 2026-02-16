@@ -13,6 +13,7 @@ fn main() {
         ("../platform/include/physical_memory_manager.h", "physical_memory_manager.rs"),
         ("../platform/include/scheduler.h", "scheduler.rs"),
         ("../platform/include/ticker.h", "ticker.rs"),
+        ("../platform/include/timer.h", "timer.rs"),
         ("../platform/include/virtual_address_allocator.h", "virtual_address_allocator.rs"),
         ("../platform/include/virtual_memory_manager.h", "virtual_memory_manager.rs"),
     ];
