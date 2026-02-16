@@ -3,10 +3,13 @@
 #include "drivers/serial.h"
 #include <stddef.h>
 
+#include "terminal.h"
+
 static uint64_t do_serial_write(const char *buf, const size_t count) {
     for (size_t i = 0; i < count; i++) {
         const uint8_t byte = buf[i];
         serial_write(byte);
+        terminal_print_char(buf[i]);
     }
 
     return 0;
