@@ -146,6 +146,17 @@ impl Scheduler {
             thread_idx as i32
         }
     }
+
+    #[allow(static_mut_refs)]
+    pub unsafe fn thread_exit(prev_thread_ctx: *mut thread_ctx) -> *mut thread_ctx {
+        unsafe {
+            interrupts_disable();
+            let scheduler = SCHEDULER.as_mut().unwrap().as_mut();
+            let prev_idx = scheduler.current_thread;
+            scheduler.threads[prev_idx as usize].state = ThreadState::Dead;
+            sched_heartbeat(prev_thread_ctx)
+        }
+    }
 }
 
 #[allow(static_mut_refs)]
@@ -187,7 +198,9 @@ pub unsafe extern "C" fn sched_heartbeat(prev_thread_ctx: *mut thread_ctx) -> *m
 
         if prev_idx >= 0 {
             let prev_thread = &mut scheduler.threads[prev_idx as usize];
-            prev_thread.state = ThreadState::Runnable;
+            if prev_thread.state == ThreadState::Running {
+                prev_thread.state = ThreadState::Runnable;
+            }
             prev_thread.ctx = prev_thread_ctx;
         }
 

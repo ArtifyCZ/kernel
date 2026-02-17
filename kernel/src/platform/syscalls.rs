@@ -1,8 +1,8 @@
-use alloc::ffi::CString;
-use core::ptr::slice_from_raw_parts;
-use crate::hcf;
 use crate::platform::drivers::serial::SerialDriver;
+use crate::platform::scheduler::Scheduler;
+use crate::platform::syscalls::bindings::syscall_frame;
 use crate::platform::terminal::Terminal;
+use core::ptr::slice_from_raw_parts;
 
 mod bindings {
     include_bindings!("syscalls.rs");
@@ -20,10 +20,13 @@ impl Syscalls {
     }
 }
 
-fn sys_exit() -> u64 {
+fn sys_exit(frame: &mut syscall_frame) -> u64 {
     unsafe {
         SerialDriver::println("=== EXIT SYSCALL ===");
-        hcf()
+        let prev_thread_ctx = (*frame.interrupt_frame).cast();
+        let next_thread_ctx = Scheduler::thread_exit(prev_thread_ctx);
+        *frame.interrupt_frame = next_thread_ctx.cast();
+        0
     }
 }
 
@@ -56,7 +59,7 @@ fn sys_write(frame: &mut bindings::syscall_frame) -> u64 {
 pub unsafe extern "C" fn syscalls_dispatch(frame: *mut bindings::syscall_frame) -> u64 {
     let frame = unsafe { frame.as_mut() }.unwrap();
     match frame.num {
-        0x00 => sys_exit(),
+        0x00 => sys_exit(frame),
         0x01 => sys_write(frame),
         _ => panic!("Non-existent syscall triggered!"), // @TODO: add better handling
     }
