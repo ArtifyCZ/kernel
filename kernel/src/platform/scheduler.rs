@@ -131,7 +131,19 @@ impl Scheduler {
     }
 
     #[allow(static_mut_refs)]
-    pub unsafe fn create_kernel(function: unsafe extern "C" fn(arg: *mut c_void)) -> i32 {
+    pub unsafe fn create_kernel<F>(function: F) -> i32
+    where
+        F: FnOnce() + 'static,
+    {
+        unsafe extern "C" fn trampoline<F>(args: *mut c_void) where F: FnOnce() + 'static {
+            let f = unsafe { Box::from_raw(args as *mut F) };
+            f();
+            todo!("Invoking syscalls from Rust not implemented yet (should use sys_exit)")
+        }
+
+        let args = Box::into_raw(Box::new(function)).cast();
+        let function = trampoline::<F>;
+
         unsafe {
             bindings::interrupts_disable(); // @TODO: use separate interrupts bindings
             let scheduler = SCHEDULER.as_mut().unwrap().as_mut();
@@ -139,7 +151,7 @@ impl Scheduler {
                 .find_first_unused_thread()
                 .expect("No unused thread available");
             let stack_top = thread.stack.as_ptr() as usize + thread.stack.len();
-            let thread_ctx = thread_setup_kernel(stack_top, function, null_mut());
+            let thread_ctx =thread_setup_kernel(stack_top, function, args);
             thread.ctx = thread_ctx;
             thread.state = ThreadState::Runnable;
             bindings::interrupts_enable(); // @TODO: use separate interrupts bindings

@@ -11,7 +11,6 @@ mod spin_lock;
 use crate::platform::drivers::keyboard::KeyboardDriver;
 use alloc::ffi::CString;
 use alloc::string::ToString;
-use core::ffi::c_void;
 use core::str::FromStr;
 
 #[panic_handler]
@@ -40,7 +39,7 @@ use crate::platform::ticker::Ticker;
 use crate::platform::timer::Timer;
 use crate::platform::virtual_memory_manager_context::VirtualMemoryManagerContext;
 
-unsafe extern "C" fn thread_heartbeat(_args: *mut c_void) {
+fn thread_heartbeat() {
     let mut i = 0;
     loop {
         if i == 2000000 {
@@ -53,7 +52,7 @@ unsafe extern "C" fn thread_heartbeat(_args: *mut c_void) {
     }
 }
 
-unsafe extern "C" fn thread_keyboard(_args: *mut c_void) {
+fn thread_keyboard() {
     loop {
         unsafe {
             if let Some(c) = KeyboardDriver::get_char() {
