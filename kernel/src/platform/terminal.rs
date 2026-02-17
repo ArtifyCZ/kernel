@@ -8,9 +8,22 @@ pub struct Terminal;
 
 impl Terminal {
     pub unsafe fn print_char(c: char) {
-        let c: c_char = c as c_char;
+        unsafe {
+            Self::print_byte(c as c_char);
+        }
+    }
+
+    pub unsafe fn print_byte(c: c_char) {
         unsafe {
             bindings::terminal_print_char(c);
+        }
+    }
+
+    pub unsafe fn print_bytes(bytes: &[u8]) {
+        for byte in bytes {
+            unsafe {
+                Self::print_byte(*byte as c_char);
+            }
         }
     }
 
