@@ -6,7 +6,8 @@ use crate::platform::thread::{thread_prepare_switch, thread_setup_kernel, thread
 use crate::platform::virtual_memory_manager_context::VirtualMemoryManagerContext;
 use alloc::boxed::Box;
 use core::ffi::c_void;
-use core::ptr::{addr_of_mut, null_mut};
+use core::pin::Pin;
+use core::ptr::null_mut;
 
 mod bindings {
     include_bindings!("scheduler.rs");
@@ -30,8 +31,18 @@ impl Default for ThreadState {
 #[repr(C, align(16))]
 struct Thread {
     state: ThreadState,
-    stack: [u8; 4 * PAGE_FRAME_SIZE],
+    stack: Pin<Box<[u8; 4 * PAGE_FRAME_SIZE]>>,
     ctx: *mut super::thread::bindings::thread_ctx,
+}
+
+impl Default for Thread {
+    fn default() -> Self {
+        Self {
+            state: Default::default(),
+            stack: Box::into_pin(unsafe { Box::new_zeroed().assume_init() }),
+            ctx: null_mut(),
+        }
+    }
 }
 
 unsafe impl Send for Thread {}
@@ -44,49 +55,23 @@ pub struct Scheduler {
     threads: [Thread; 12],
 }
 
-static mut SCHEDULER: Option<Box<Scheduler>> = None;
-
-unsafe fn find_first_unused_thread(scheduler: &mut Scheduler) -> Option<(usize, &mut Thread)> {
-    scheduler
-        .threads
-        .iter_mut()
-        .enumerate()
-        .filter(|(_, thread)| thread.state == ThreadState::Unused)
-        .next()
-}
-
-unsafe fn find_next_runnable_thread(scheduler: &mut Scheduler) -> Option<(usize, &mut Thread)> {
-    for offset in 1..=scheduler.threads.len() {
-        let idx = if scheduler.current_thread < 0 {
-            offset - 1
-        } else {
-            ((scheduler.current_thread as usize) + offset) % scheduler.threads.len()
-        };
-        if scheduler.threads[idx].state == ThreadState::Runnable {
-            return Some((idx, &mut scheduler.threads[idx]));
+impl Default for Scheduler {
+    fn default() -> Self {
+        Scheduler {
+            current_thread: -1,
+            started: false,
+            threads: [(); 12].map(|_| Default::default()),
         }
     }
-
-    None
 }
+
+static mut SCHEDULER: Option<Box<Scheduler>> = None;
 
 impl Scheduler {
     pub unsafe fn init() {
         unsafe {
             SerialDriver::println("Initializing scheduler...");
-            let mut sched_box = Box::<Scheduler>::new_uninit();
-            let sched_ptr = sched_box.as_mut_ptr();
-            addr_of_mut!((*sched_ptr).current_thread).write(-1);
-            addr_of_mut!((*sched_ptr).started).write(false);
-            for i in 0..12 {
-                let thread_ptr = addr_of_mut!((*sched_ptr).threads[i]);
-                addr_of_mut!((*thread_ptr).state).write(ThreadState::Unused);
-                addr_of_mut!((*thread_ptr).ctx).write(null_mut());
-                for si in 0..(PAGE_FRAME_SIZE * 4) {
-                    addr_of_mut!((*thread_ptr).stack[si]).write(0);
-                }
-            }
-            SCHEDULER = Some(sched_box.assume_init());
+            SCHEDULER = Some(Default::default());
             SerialDriver::println("Scheduler initialized!");
         }
     }
@@ -102,6 +87,29 @@ impl Scheduler {
         }
     }
 
+    fn find_first_unused_thread(&mut self) -> Option<(usize, &mut Thread)> {
+        self.threads
+            .iter_mut()
+            .enumerate()
+            .filter(|(_, thread)| thread.state == ThreadState::Unused)
+            .next()
+    }
+
+    fn find_next_runnable_thread(&mut self) -> Option<(usize, &mut Thread)> {
+        for offset in 1..=self.threads.len() {
+            let idx = if self.current_thread < 0 {
+                offset - 1
+            } else {
+                ((self.current_thread as usize) + offset) % self.threads.len()
+            };
+            if self.threads[idx].state == ThreadState::Runnable {
+                return Some((idx, &mut self.threads[idx]));
+            }
+        }
+
+        None
+    }
+
     #[allow(static_mut_refs)]
     pub unsafe fn create_user(
         user_ctx: &mut VirtualMemoryManagerContext,
@@ -110,8 +118,9 @@ impl Scheduler {
         unsafe {
             bindings::interrupts_disable(); // @TODO: use separate interrupts bindings
             let scheduler = SCHEDULER.as_mut().unwrap().as_mut();
-            let (thread_idx, thread) =
-                find_first_unused_thread(scheduler).expect("No unused thread available");
+            let (thread_idx, thread) = scheduler
+                .find_first_unused_thread()
+                .expect("No unused thread available");
             let kernel_stack_top = thread.stack.as_ptr() as usize + thread.stack.len();
             let thread_ctx = thread_setup_user(user_ctx, entrypoint_vaddr, kernel_stack_top);
             thread.ctx = thread_ctx;
@@ -126,8 +135,9 @@ impl Scheduler {
         unsafe {
             bindings::interrupts_disable(); // @TODO: use separate interrupts bindings
             let scheduler = SCHEDULER.as_mut().unwrap().as_mut();
-            let (thread_idx, thread) =
-                find_first_unused_thread(scheduler).expect("No unused thread available");
+            let (thread_idx, thread) = scheduler
+                .find_first_unused_thread()
+                .expect("No unused thread available");
             let stack_top = thread.stack.as_ptr() as usize + thread.stack.len();
             let thread_ctx = thread_setup_kernel(stack_top, function, null_mut());
             thread.ctx = thread_ctx;
@@ -157,7 +167,7 @@ pub unsafe extern "C" fn sched_heartbeat(prev_thread_ctx: *mut thread_ctx) -> *m
 
         let prev_idx = scheduler.current_thread;
 
-        let (next_idx, next_thread) = match find_next_runnable_thread(scheduler) {
+        let (next_idx, next_thread) = match scheduler.find_next_runnable_thread() {
             None => {
                 interrupts_enable();
                 return prev_thread_ctx;
