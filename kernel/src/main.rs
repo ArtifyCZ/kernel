@@ -34,6 +34,7 @@ use crate::platform::drivers::serial::SerialDriver;
 use crate::platform::elf::Elf;
 use crate::platform::modules::Modules;
 use crate::platform::scheduler::Scheduler;
+use crate::platform::syscalls::Syscalls;
 use crate::platform::terminal::Terminal;
 use crate::platform::ticker::Ticker;
 use crate::platform::timer::Timer;
@@ -66,6 +67,7 @@ fn main(hhdm_offset: u64) {
     unsafe {
         SerialDriver::println("Hello from Rust!");
 
+        Syscalls::init();
         Elf::init(hhdm_offset);
         Timer::init(100);
 

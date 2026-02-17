@@ -8,7 +8,6 @@
 #include "modules.h"
 #include "physical_memory_manager.h"
 #include "psf.h"
-#include "syscalls.h"
 #include "drivers/serial.h"
 #include "terminal.h"
 #include "virtual_address_allocator.h"
@@ -191,10 +190,6 @@ __attribute__((used)) void boot(void) {
     serial_println("Initializing interrupts...");
     interrupts_init();
     serial_println("Interrupts initialized!");
-
-    serial_println("Initializing syscalls...");
-    syscalls_init();
-    serial_println("Syscalls initialized!");
 
 #if defined (__x86_64__)
     serial_println("Initializing ACPI...");

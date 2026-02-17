@@ -1,6 +1,7 @@
 #pragma once
 
 #include <stdint.h>
+#include "interrupts.h"
 
 struct syscall_frame {
     uint64_t num;
