@@ -7,7 +7,12 @@
 
 bool syscalls_interrupt_handler(struct interrupt_frame **frame, void *args);
 
-void syscalls_init(void) {
+static syscall_handler_t g_syscall_handler = NULL;
+static void *g_syscall_handler_arg = NULL;
+
+void syscalls_init(syscall_handler_t syscall_handler, void *syscall_handler_arg) {
+    g_syscall_handler = syscall_handler;
+    g_syscall_handler_arg = syscall_handler_arg;
     interrupts_register_handler(SYSCALL_INTERRUPT_VECTOR, syscalls_interrupt_handler, NULL);
 }
 
@@ -27,7 +32,7 @@ bool syscalls_interrupt_handler(struct interrupt_frame **frame, void *args) {
     };
 
     struct interrupt_frame *previous_frame = *frame;
-    uint64_t return_value = syscalls_dispatch(&syscall_frame);
+    const uint64_t return_value = g_syscall_handler(&syscall_frame, g_syscall_handler_arg);
     previous_frame->rax = return_value;
 
     return true;

@@ -5,9 +5,14 @@
 
 #include "cpu_interrupts.h"
 #include <stdbool.h>
+#include <stddef.h>
 
-void syscalls_init() {
-    // Do nothing
+static syscall_handler_t g_syscall_handler = NULL;
+static void *g_syscall_handler_arg = NULL;
+
+void syscalls_init(syscall_handler_t syscall_handler, void *syscall_handler_arg) {
+    g_syscall_handler = syscall_handler;
+    g_syscall_handler_arg = syscall_handler_arg;
 }
 
 bool syscalls_interrupt_handler(struct interrupt_frame **frame) {
@@ -24,7 +29,7 @@ bool syscalls_interrupt_handler(struct interrupt_frame **frame) {
     };
 
     struct interrupt_frame *previous_frame = *frame;
-    const uint64_t return_value = syscalls_dispatch(&syscall_frame);
+    const uint64_t return_value = g_syscall_handler(&syscall_frame, g_syscall_handler_arg);
     previous_frame->x[0] = return_value;
 
     return true;

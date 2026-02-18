@@ -9,6 +9,6 @@ struct syscall_frame {
     struct interrupt_frame **interrupt_frame;
 };
 
-void syscalls_init(void);
+typedef uint64_t (*syscall_handler_t)(struct syscall_frame *frame, void *arg);
 
-uint64_t syscalls_dispatch(struct syscall_frame *frame);
+void syscalls_init(syscall_handler_t syscall_handler, void *syscall_handler_arg);
