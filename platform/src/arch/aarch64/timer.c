@@ -4,7 +4,6 @@
 
 #include "gic.h"
 #include "interrupts.h"
-#include "scheduler.h"
 
 #define IRQ_INTERRUPT_VECTOR 0x1B
 
@@ -19,7 +18,8 @@ static volatile void *g_tick_handler_priv;
 bool timer_irq_handler(struct interrupt_frame **frame, void *priv);
 
 void timer_init(uint32_t freqHz) {
-    if (freqHz == 0) freqHz = 100;
+    if (freqHz == 0)
+        freqHz = 100;
 
     g_freqHz = freqHz;
     g_ticks = 0;
@@ -63,8 +63,7 @@ bool timer_irq_handler(struct interrupt_frame **frame, void *priv) {
     g_ticks++;
 
     if (g_tick_handler != NULL) {
-        *frame = (struct interrupt_frame *) sched_heartbeat((struct thread_ctx *) *frame);
-        return g_tick_handler(g_tick_handler_priv);
+        return g_tick_handler(frame, (void *) g_tick_handler_priv);
     }
 
     return true;

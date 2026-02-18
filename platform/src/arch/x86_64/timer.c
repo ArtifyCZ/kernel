@@ -101,8 +101,7 @@ bool lapic_timer_handler(struct interrupt_frame **frame, void *priv) {
     g_ticks++;
 
     if (g_tick_handler != NULL) {
-        *frame = (struct interrupt_frame *) sched_heartbeat((struct thread_ctx *) *frame);
-        return g_tick_handler((void *)g_tick_handler_priv);
+        return g_tick_handler(frame, (void *)g_tick_handler_priv);
     }
 
     return true;

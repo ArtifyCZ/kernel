@@ -1,11 +1,12 @@
 #pragma once
 
+#include "interrupts.h"
 #include <stdint.h>
 #include <stdbool.h>
 
 // Callback signature for a tick handler.
 // Returns true for the tick to be acknowledged.
-typedef bool (*timer_tick_handler_t)(void *priv);
+typedef bool (*timer_tick_handler_t)(struct interrupt_frame **frame, void *priv);
 
 void timer_init(uint32_t freqHz);
 
