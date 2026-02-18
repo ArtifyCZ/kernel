@@ -12,7 +12,7 @@ pub mod physical_memory_manager;
 pub mod physical_page_frame;
 pub mod scheduler;
 pub mod syscalls;
-mod tasks;
+pub mod tasks;
 pub mod terminal;
 pub mod ticker;
 pub mod timer;

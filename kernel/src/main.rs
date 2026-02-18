@@ -8,9 +8,12 @@ mod entrypoint;
 mod platform;
 mod spin_lock;
 
+use alloc::boxed::Box;
 use crate::platform::drivers::keyboard::KeyboardDriver;
 use alloc::ffi::CString;
 use alloc::string::ToString;
+use alloc::sync::Arc;
+use core::ffi::c_void;
 use core::str::FromStr;
 
 #[panic_handler]
@@ -31,9 +34,11 @@ unsafe extern "C" {
 
 use crate::platform::drivers::serial::SerialDriver;
 use crate::platform::elf::Elf;
+use crate::platform::memory_layout::PAGE_FRAME_SIZE;
 use crate::platform::modules::Modules;
 use crate::platform::scheduler::Scheduler;
 use crate::platform::syscalls::Syscalls;
+use crate::platform::tasks::Task;
 use crate::platform::terminal::Terminal;
 use crate::platform::ticker::Ticker;
 use crate::platform::timer::Timer;
@@ -62,6 +67,22 @@ fn thread_keyboard() {
     }
 }
 
+fn spawn_thread<F>(f: F) where F: FnOnce() + 'static {
+    unsafe extern "C" fn trampoline<F>(args: *mut c_void)
+    where
+        F: FnOnce() + 'static,
+    {
+        let f: Box<F> = unsafe { Box::from_raw(args.cast()) };
+        f();
+        todo!("Invoking syscalls from Rust not implemented yet (should use sys_exit)")
+    }
+
+    let arg = Box::into_raw(Box::new(f)).cast();
+
+    let task = Task::new_kernel(trampoline::<F>, arg, 4 * PAGE_FRAME_SIZE);
+    Scheduler::static_add(task);
+}
+
 fn main(hhdm_offset: u64) {
     unsafe {
         SerialDriver::println("Hello from Rust!");
@@ -76,15 +97,16 @@ fn main(hhdm_offset: u64) {
 
         Scheduler::init();
 
-        Scheduler::create_kernel(thread_heartbeat);
-        Scheduler::create_kernel(thread_keyboard);
+        spawn_thread(thread_heartbeat);
+        spawn_thread(thread_keyboard);
 
         {
             let init_elf_string = CString::from_str("init.elf").expect("Failed to create CString");
             let init_elf = Modules::find(init_elf_string.as_c_str()).unwrap();
             let mut init_ctx = VirtualMemoryManagerContext::create();
             let entrypoint_vaddr = Elf::load(&mut init_ctx, init_elf).unwrap();
-            Scheduler::create_user(&mut init_ctx, entrypoint_vaddr);
+            let task = Task::new_user(Arc::new(init_ctx), entrypoint_vaddr);
+            Scheduler::static_add(task);
         }
 
         Scheduler::start();

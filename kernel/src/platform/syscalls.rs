@@ -1,8 +1,8 @@
-use core::ffi::c_void;
 use crate::platform::drivers::serial::SerialDriver;
 use crate::platform::scheduler::Scheduler;
 use crate::platform::syscalls::bindings::syscall_frame;
 use crate::platform::terminal::Terminal;
+use core::ffi::c_void;
 use core::ptr::{null_mut, slice_from_raw_parts};
 
 mod bindings {
@@ -23,9 +23,9 @@ impl Syscalls {
     fn sys_exit(frame: &mut syscall_frame) -> u64 {
         unsafe {
             SerialDriver::println("=== EXIT SYSCALL ===");
-            let prev_thread_ctx = (*frame.interrupt_frame).cast();
-            let next_thread_ctx = Scheduler::thread_exit(prev_thread_ctx);
-            *frame.interrupt_frame = next_thread_ctx.cast();
+            let prev_task_interrupt_frame = (*frame.interrupt_frame).cast();
+            let next_task_interrupt_frame = Scheduler::thread_exit(prev_task_interrupt_frame);
+            *frame.interrupt_frame = next_task_interrupt_frame.cast();
             0
         }
     }
@@ -48,14 +48,19 @@ impl Syscalls {
 
         let user_buf = user_buf as *const u8;
         unsafe {
-            let user_buf = slice_from_raw_parts(user_buf, count as usize).as_ref().unwrap();
+            let user_buf = slice_from_raw_parts(user_buf, count as usize)
+                .as_ref()
+                .unwrap();
             SerialDriver::write(user_buf);
             Terminal::print_bytes(user_buf);
         }
         0
     }
 
-    unsafe extern "C" fn syscalls_dispatch(frame: *mut bindings::syscall_frame, _arg: *mut c_void) -> u64 {
+    unsafe extern "C" fn syscalls_dispatch(
+        frame: *mut bindings::syscall_frame,
+        _arg: *mut c_void,
+    ) -> u64 {
         let frame = unsafe { frame.as_mut() }.unwrap();
         match frame.num {
             0x00 => Self::sys_exit(frame),
