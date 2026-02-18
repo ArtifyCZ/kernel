@@ -1,6 +1,6 @@
-use bitflags::bitflags;
 use crate::platform::physical_page_frame::{PhysicalPageFrame, PhysicalPageFrameParseError};
 use crate::platform::virtual_page_address::VirtualPageAddress;
+use bitflags::bitflags;
 
 mod bindings {
     include_bindings!("virtual_memory_manager.rs");
@@ -31,7 +31,7 @@ impl VirtualMemoryManagerContext {
             }
         }
     }
-    
+
     pub unsafe fn create() -> VirtualMemoryManagerContext {
         unsafe {
             VirtualMemoryManagerContext {
@@ -39,7 +39,11 @@ impl VirtualMemoryManagerContext {
             }
         }
     }
-    
+
+    pub(super) unsafe fn inner(&self) -> &bindings::vmm_context {
+        &self.context
+    }
+
     pub(super) unsafe fn inner_mut(&mut self) -> &mut bindings::vmm_context {
         &mut self.context
     }

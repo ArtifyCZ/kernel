@@ -1,9 +1,12 @@
 use crate::platform::drivers::serial::SerialDriver;
 use crate::platform::memory_layout::PAGE_FRAME_SIZE;
+use crate::platform::physical_memory_manager::PhysicalMemoryManager;
 use crate::platform::scheduler::bindings::{interrupts_disable, interrupts_enable};
-use crate::platform::thread::bindings::thread_ctx;
-use crate::platform::thread::{thread_prepare_switch, thread_setup_kernel, thread_setup_user};
-use crate::platform::virtual_memory_manager_context::VirtualMemoryManagerContext;
+use crate::platform::tasks::Task;
+use crate::platform::virtual_memory_manager_context::{
+    VirtualMemoryManagerContext, VirtualMemoryMappingFlags,
+};
+use crate::platform::virtual_page_address::VirtualPageAddress;
 use alloc::boxed::Box;
 use core::ffi::c_void;
 use core::pin::Pin;
@@ -32,7 +35,7 @@ impl Default for ThreadState {
 struct Thread {
     state: ThreadState,
     stack: Pin<Box<[u8; 4 * PAGE_FRAME_SIZE]>>,
-    ctx: *mut super::thread::bindings::thread_ctx,
+    interrupt_frame: *mut super::tasks::bindings::interrupt_frame,
 }
 
 impl Default for Thread {
@@ -40,7 +43,7 @@ impl Default for Thread {
         Self {
             state: Default::default(),
             stack: Box::into_pin(unsafe { Box::new_zeroed().assume_init() }),
-            ctx: null_mut(),
+            interrupt_frame: null_mut(),
         }
     }
 }
@@ -122,8 +125,26 @@ impl Scheduler {
                 .find_first_unused_thread()
                 .expect("No unused thread available");
             let kernel_stack_top = thread.stack.as_ptr() as usize + thread.stack.len();
-            let thread_ctx = thread_setup_user(user_ctx, entrypoint_vaddr, kernel_stack_top);
-            thread.ctx = thread_ctx;
+            let user_stack_top = 0x7FFFFFFFF000; // @TODO: add rather some logic for choosing the stack address
+
+            for i in 0..4 {
+                // allocate 4 pages as stack
+                let page_vaddr = user_stack_top - (i + 1) * PAGE_FRAME_SIZE;
+                let page_phys = PhysicalMemoryManager::alloc_frame().unwrap();
+                user_ctx
+                    .map_page(
+                        VirtualPageAddress::new(page_vaddr).unwrap(),
+                        page_phys,
+                        VirtualMemoryMappingFlags::PRESENT
+                            | VirtualMemoryMappingFlags::USER
+                            | VirtualMemoryMappingFlags::WRITE,
+                    )
+                    .unwrap();
+            }
+
+            let interrupt_frame =
+                Task::setup_user(user_ctx, entrypoint_vaddr, user_stack_top, kernel_stack_top);
+            thread.interrupt_frame = interrupt_frame;
             thread.state = ThreadState::Runnable;
             bindings::interrupts_enable(); // @TODO: use separate interrupts bindings
             thread_idx as i32
@@ -135,7 +156,10 @@ impl Scheduler {
     where
         F: FnOnce() + 'static,
     {
-        unsafe extern "C" fn trampoline<F>(args: *mut c_void) where F: FnOnce() + 'static {
+        unsafe extern "C" fn trampoline<F>(args: *mut c_void)
+        where
+            F: FnOnce() + 'static,
+        {
             let f = unsafe { Box::from_raw(args as *mut F) };
             f();
             todo!("Invoking syscalls from Rust not implemented yet (should use sys_exit)")
@@ -151,8 +175,8 @@ impl Scheduler {
                 .find_first_unused_thread()
                 .expect("No unused thread available");
             let stack_top = thread.stack.as_ptr() as usize + thread.stack.len();
-            let thread_ctx =thread_setup_kernel(stack_top, function, args);
-            thread.ctx = thread_ctx;
+            let interrupt_frame = Task::setup_kernel(stack_top, function, args);
+            thread.interrupt_frame = interrupt_frame;
             thread.state = ThreadState::Runnable;
             bindings::interrupts_enable(); // @TODO: use separate interrupts bindings
             thread_idx as i32
@@ -160,7 +184,7 @@ impl Scheduler {
     }
 
     #[allow(static_mut_refs)]
-    pub unsafe fn thread_exit(prev_thread_ctx: *mut thread_ctx) -> *mut thread_ctx {
+    pub unsafe fn thread_exit(prev_thread_ctx: *mut super::tasks::bindings::interrupt_frame) -> *mut super::tasks::bindings::interrupt_frame {
         unsafe {
             interrupts_disable();
             let scheduler = SCHEDULER.as_mut().unwrap().as_mut();
@@ -171,7 +195,7 @@ impl Scheduler {
     }
 
     #[allow(static_mut_refs)]
-    pub(super) unsafe fn heartbeat(prev_thread_ctx: *mut thread_ctx) -> *mut thread_ctx {
+    pub(super) unsafe fn heartbeat(prev_thread_ctx: *mut super::tasks::bindings::interrupt_frame) -> *mut super::tasks::bindings::interrupt_frame {
         unsafe {
             interrupts_disable();
             let scheduler = match SCHEDULER.as_mut() {
@@ -203,15 +227,15 @@ impl Scheduler {
 
             next_thread.state = ThreadState::Running;
             let kernel_stack_top = next_thread.stack.as_ptr() as usize + next_thread.stack.len();
-            thread_prepare_switch(kernel_stack_top);
-            let next_thread_ctx = next_thread.ctx;
+            Task::prepare_switch(kernel_stack_top);
+            let next_thread_ctx = next_thread.interrupt_frame;
 
             if prev_idx >= 0 {
                 let prev_thread = &mut scheduler.threads[prev_idx as usize];
                 if prev_thread.state == ThreadState::Running {
                     prev_thread.state = ThreadState::Runnable;
                 }
-                prev_thread.ctx = prev_thread_ctx;
+                prev_thread.interrupt_frame = prev_thread_ctx;
             }
 
             scheduler.current_thread = next_idx;
