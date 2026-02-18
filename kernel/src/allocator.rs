@@ -109,7 +109,6 @@ unsafe impl GlobalAlloc for Allocator {
                 let ptr = next_available_virtual_address.inner() as *mut u8;
                 NEXT_AVAILABLE_VIRTUAL_ADDRESS =
                     Some(next_available_virtual_address + layout.size());
-                SerialDriver::write(b"Allocated memory successfully!\n");
                 ptr
             } else {
                 null_mut()
