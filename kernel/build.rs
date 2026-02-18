@@ -15,7 +15,6 @@ fn main() {
         ("../platform/include/syscalls.h", "syscalls.rs"),
         ("../platform/include/terminal.h", "terminal.rs"),
         ("../platform/include/thread.h", "thread.rs"),
-        ("../platform/include/ticker.h", "ticker.rs"),
         ("../platform/include/timer.h", "timer.rs"),
         ("../platform/include/virtual_address_allocator.h", "virtual_address_allocator.rs"),
         ("../platform/include/virtual_memory_manager.h", "virtual_memory_manager.rs"),

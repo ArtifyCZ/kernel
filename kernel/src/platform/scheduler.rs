@@ -166,59 +166,58 @@ impl Scheduler {
             let scheduler = SCHEDULER.as_mut().unwrap().as_mut();
             let prev_idx = scheduler.current_thread;
             scheduler.threads[prev_idx as usize].state = ThreadState::Dead;
-            sched_heartbeat(prev_thread_ctx)
+            Self::heartbeat(prev_thread_ctx)
         }
     }
-}
 
-#[allow(static_mut_refs)]
-#[unsafe(no_mangle)]
-pub unsafe extern "C" fn sched_heartbeat(prev_thread_ctx: *mut thread_ctx) -> *mut thread_ctx {
-    unsafe {
-        interrupts_disable();
-        let scheduler = match SCHEDULER.as_mut() {
-            None => {
+    #[allow(static_mut_refs)]
+    pub(super) unsafe fn heartbeat(prev_thread_ctx: *mut thread_ctx) -> *mut thread_ctx {
+        unsafe {
+            interrupts_disable();
+            let scheduler = match SCHEDULER.as_mut() {
+                None => {
+                    interrupts_enable();
+                    return prev_thread_ctx;
+                }
+                Some(scheduler) => scheduler.as_mut(),
+            };
+            if !scheduler.started {
                 interrupts_enable();
                 return prev_thread_ctx;
             }
-            Some(scheduler) => scheduler.as_mut(),
-        };
-        if !scheduler.started {
-            interrupts_enable();
-            return prev_thread_ctx;
-        }
 
-        let prev_idx = scheduler.current_thread;
+            let prev_idx = scheduler.current_thread;
 
-        let (next_idx, next_thread) = match scheduler.find_next_runnable_thread() {
-            None => {
+            let (next_idx, next_thread) = match scheduler.find_next_runnable_thread() {
+                None => {
+                    interrupts_enable();
+                    return prev_thread_ctx;
+                }
+                Some((next_idx, next_thread)) => (next_idx as i32, next_thread),
+            };
+
+            if next_idx == prev_idx {
                 interrupts_enable();
                 return prev_thread_ctx;
             }
-            Some((next_idx, next_thread)) => (next_idx as i32, next_thread),
-        };
 
-        if next_idx == prev_idx {
-            interrupts_enable();
-            return prev_thread_ctx;
-        }
+            next_thread.state = ThreadState::Running;
+            let kernel_stack_top = next_thread.stack.as_ptr() as usize + next_thread.stack.len();
+            thread_prepare_switch(kernel_stack_top);
+            let next_thread_ctx = next_thread.ctx;
 
-        next_thread.state = ThreadState::Running;
-        let kernel_stack_top = next_thread.stack.as_ptr() as usize + next_thread.stack.len();
-        thread_prepare_switch(kernel_stack_top);
-        let next_thread_ctx = next_thread.ctx;
-
-        if prev_idx >= 0 {
-            let prev_thread = &mut scheduler.threads[prev_idx as usize];
-            if prev_thread.state == ThreadState::Running {
-                prev_thread.state = ThreadState::Runnable;
+            if prev_idx >= 0 {
+                let prev_thread = &mut scheduler.threads[prev_idx as usize];
+                if prev_thread.state == ThreadState::Running {
+                    prev_thread.state = ThreadState::Runnable;
+                }
+                prev_thread.ctx = prev_thread_ctx;
             }
-            prev_thread.ctx = prev_thread_ctx;
+
+            scheduler.current_thread = next_idx;
+
+            interrupts_enable();
+            next_thread_ctx
         }
-
-        scheduler.current_thread = next_idx;
-
-        interrupts_enable();
-        next_thread_ctx
     }
 }
