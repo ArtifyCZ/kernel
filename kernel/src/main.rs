@@ -83,7 +83,8 @@ where
     let arg = Box::into_raw(Box::new(f)).cast();
 
     let task = Task::new_kernel(trampoline::<F>, arg, 4 * PAGE_FRAME_SIZE);
-    Scheduler::static_add(task);
+    let scheduler = unsafe { Scheduler::get_instance() };
+    scheduler.add(task);
 }
 
 fn main(hhdm_offset: u64) {
@@ -109,9 +110,11 @@ fn main(hhdm_offset: u64) {
             let mut init_ctx = VirtualMemoryManagerContext::create();
             let entrypoint_vaddr = Elf::load(&mut init_ctx, init_elf).unwrap();
             let task = Task::new_user(Arc::new(init_ctx), entrypoint_vaddr);
-            Scheduler::static_add(task);
+            let scheduler = Scheduler::get_instance();
+            scheduler.add(task);
         }
 
-        Scheduler::start();
+        let scheduler = Scheduler::get_instance();
+        scheduler.start()
     }
 }

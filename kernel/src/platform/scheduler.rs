@@ -37,11 +37,18 @@ impl Scheduler {
     }
 
     #[allow(static_mut_refs)]
-    pub unsafe fn start() -> ! {
+    pub unsafe fn get_instance() -> &'static mut Self {
+        unsafe {
+            SCHEDULER.as_mut().unwrap().as_mut()
+        }
+    }
+
+    #[allow(static_mut_refs)]
+    pub unsafe fn start(&mut self) -> ! {
         loop {
             unsafe {
-                let scheduler = SCHEDULER.as_mut().unwrap().as_mut();
-                scheduler.started = true;
+                self.started = true;
+                interrupts_enable();
                 bindings::sched_start();
             }
         }
@@ -64,49 +71,31 @@ impl Scheduler {
         self.tasks.push(task);
     }
 
-    #[allow(static_mut_refs)]
-    pub fn static_add(task: Task) {
-        unsafe {
-            interrupts_disable();
-            let scheduler = SCHEDULER.as_mut().unwrap().as_mut();
-            scheduler.add(task);
-            interrupts_enable();
-        }
-    }
-
-    #[allow(static_mut_refs)]
-    pub unsafe fn task_exit(prev_task_state: TaskState) -> TaskState {
+    pub fn exit_task(&mut self, prev_task_state: TaskState) -> TaskState {
         unsafe {
             interrupts_disable();
             // @TODO: implement exit on tasks
-            Self::heartbeat(prev_task_state)
+            self.heartbeat(prev_task_state)
         }
     }
 
     #[allow(static_mut_refs)]
-    pub(super) unsafe fn heartbeat(prev_task_state: TaskState) -> TaskState {
+    pub(super) unsafe fn heartbeat(&mut self, prev_task_state: TaskState) -> TaskState {
         unsafe {
             interrupts_disable();
-            let scheduler = match SCHEDULER.as_mut() {
-                None => {
-                    interrupts_enable();
-                    return prev_task_state;
-                }
-                Some(scheduler) => scheduler.as_mut(),
-            };
-            if !scheduler.started {
+            if !self.started {
                 interrupts_enable();
                 return prev_task_state;
             }
 
-            let prev_idx = scheduler.current_task;
+            let prev_idx = self.current_task;
 
-            let (next_idx, next_thread) = match scheduler.find_next_runnable_task() {
+            let (next_idx, next_task) = match self.find_next_runnable_task() {
                 None => {
                     interrupts_enable();
                     return prev_task_state;
                 }
-                Some((next_idx, next_thread)) => (next_idx as i32, next_thread),
+                Some((next_idx, next_task)) => (next_idx as i32, next_task),
             };
 
             if next_idx == prev_idx {
@@ -114,15 +103,15 @@ impl Scheduler {
                 return prev_task_state;
             }
 
-            next_thread.prepare_switch();
-            let next_task_state = next_thread.get_state();
+            next_task.prepare_switch();
+            let next_task_state = next_task.get_state();
 
             if prev_idx >= 0 {
-                let prev_task = &mut scheduler.tasks[prev_idx as usize];
+                let prev_task = &mut self.tasks[prev_idx as usize];
                 prev_task.set_state(prev_task_state);
             }
 
-            scheduler.current_task = next_idx;
+            self.current_task = next_idx;
 
             interrupts_enable();
             next_task_state
