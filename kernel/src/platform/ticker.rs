@@ -4,6 +4,7 @@ use core::ffi::c_void;
 use core::ptr::null_mut;
 use crate::platform::drivers::serial::SerialDriver;
 use crate::platform::scheduler::Scheduler;
+use crate::platform::tasks::TaskState;
 
 pub struct Ticker;
 
@@ -20,7 +21,9 @@ impl Ticker {
     ) -> bool {
         unsafe {
             let prev_frame: *mut super::timer::bindings::interrupt_frame = frame.read();
-            let next_frame: *mut super::timer::bindings::interrupt_frame = Scheduler::heartbeat(prev_frame.cast()).cast();
+            let prev_state = TaskState(prev_frame.cast());
+            let next_state: TaskState = Scheduler::heartbeat(prev_state);
+            let next_frame: *mut super::timer::bindings::interrupt_frame = next_state.0.cast();
             frame.write(next_frame);
 
             let ticks = Timer::get_ticks();

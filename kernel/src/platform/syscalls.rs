@@ -4,6 +4,7 @@ use crate::platform::syscalls::bindings::syscall_frame;
 use crate::platform::terminal::Terminal;
 use core::ffi::c_void;
 use core::ptr::{null_mut, slice_from_raw_parts};
+use crate::platform::tasks::TaskState;
 
 mod bindings {
     include_bindings!("syscalls.rs");
@@ -24,7 +25,9 @@ impl Syscalls {
         unsafe {
             SerialDriver::println("=== EXIT SYSCALL ===");
             let prev_task_interrupt_frame = (*frame.interrupt_frame).cast();
-            let next_task_interrupt_frame = Scheduler::thread_exit(prev_task_interrupt_frame);
+            let prev_task_state = TaskState(prev_task_interrupt_frame);
+            let next_task_state = Scheduler::task_exit(prev_task_state);
+            let next_task_interrupt_frame = next_task_state.0;
             *frame.interrupt_frame = next_task_interrupt_frame.cast();
             0
         }

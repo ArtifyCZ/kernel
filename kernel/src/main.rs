@@ -8,8 +8,8 @@ mod entrypoint;
 mod platform;
 mod spin_lock;
 
-use alloc::boxed::Box;
 use crate::platform::drivers::keyboard::KeyboardDriver;
+use alloc::boxed::Box;
 use alloc::ffi::CString;
 use alloc::string::ToString;
 use alloc::sync::Arc;
@@ -67,7 +67,10 @@ fn thread_keyboard() {
     }
 }
 
-fn spawn_thread<F>(f: F) where F: FnOnce() + 'static {
+fn spawn_thread<F>(f: F)
+where
+    F: FnOnce() + 'static,
+{
     unsafe extern "C" fn trampoline<F>(args: *mut c_void)
     where
         F: FnOnce() + 'static,

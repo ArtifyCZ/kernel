@@ -16,12 +16,17 @@ pub(super) mod bindings {
 
 pub const TASK_KERNEL_STACK_SIZE: usize = 4 * PAGE_FRAME_SIZE;
 
+#[derive(Debug, Copy, Clone)]
+#[repr(transparent)]
+pub struct TaskState(pub(super) *mut bindings::interrupt_frame);
+
 pub struct Task {
     #[allow(unused)]
     user_ctx: Option<Arc<VirtualMemoryManagerContext>>,
     kernel_stack: Pin<Box<[u8]>>,
+    #[allow(unused)]
     user_stack: Option<Pin<Box<[u8]>>>,
-    interrupt_frame: *mut bindings::interrupt_frame,
+    state: TaskState,
 }
 
 impl Task {
@@ -54,22 +59,22 @@ impl Task {
             }
         }
 
-        let interrupt_frame = unsafe {
+        let state = unsafe {
             let user_ctx_ptr: *const vmm_context = core::mem::transmute(user_ctx.inner());
             let kernel_stack_top = kernel_stack.as_ptr_range().end as usize;
-            bindings::task_setup_user(
+            TaskState(bindings::task_setup_user(
                 user_ctx_ptr,
                 entrypoint_vaddr,
                 user_stack_top_vaddr,
                 kernel_stack_top,
-            )
+            ))
         };
 
         Self {
             user_ctx: Some(user_ctx),
             user_stack: Some(user_stack),
             kernel_stack,
-            interrupt_frame,
+            state,
         }
     }
 
@@ -82,25 +87,25 @@ impl Task {
             Pin::new_unchecked(Box::<[u8]>::new_zeroed_slice(kernel_stack_size).assume_init())
         };
 
-        let interrupt_frame = unsafe {
+        let state = unsafe {
             let kernel_stack_top = kernel_stack.as_ptr_range().end as usize;
-            bindings::task_setup_kernel(kernel_stack_top, Some(function), arg)
+            TaskState(bindings::task_setup_kernel(kernel_stack_top, Some(function), arg))
         };
 
         Self {
             user_ctx: None,
             user_stack: None,
             kernel_stack,
-            interrupt_frame,
+            state,
         }
     }
 
-    pub(super) fn get_interrupt_frame(&self) -> *mut bindings::interrupt_frame {
-        self.interrupt_frame
+    pub fn get_state(&self) -> TaskState {
+        self.state
     }
 
-    pub(super) fn set_interrupt_frame(&mut self, interrupt_frame: *mut bindings::interrupt_frame) {
-        self.interrupt_frame = interrupt_frame;
+    pub fn set_state(&mut self, state: TaskState) {
+        self.state = state;
     }
 
     pub(super) unsafe fn prepare_switch(&self) {

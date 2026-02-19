@@ -1,6 +1,6 @@
 use crate::platform::drivers::serial::SerialDriver;
 use crate::platform::scheduler::bindings::{interrupts_disable, interrupts_enable};
-use crate::platform::tasks::Task;
+use crate::platform::tasks::{Task, TaskState};
 use alloc::boxed::Box;
 use alloc::vec::Vec;
 
@@ -75,28 +75,28 @@ impl Scheduler {
     }
 
     #[allow(static_mut_refs)]
-    pub unsafe fn thread_exit(prev_thread_ctx: *mut super::tasks::bindings::interrupt_frame) -> *mut super::tasks::bindings::interrupt_frame {
+    pub unsafe fn task_exit(prev_task_state: TaskState) -> TaskState {
         unsafe {
             interrupts_disable();
             // @TODO: implement exit on tasks
-            Self::heartbeat(prev_thread_ctx)
+            Self::heartbeat(prev_task_state)
         }
     }
 
     #[allow(static_mut_refs)]
-    pub(super) unsafe fn heartbeat(prev_thread_ctx: *mut super::tasks::bindings::interrupt_frame) -> *mut super::tasks::bindings::interrupt_frame {
+    pub(super) unsafe fn heartbeat(prev_task_state: TaskState) -> TaskState {
         unsafe {
             interrupts_disable();
             let scheduler = match SCHEDULER.as_mut() {
                 None => {
                     interrupts_enable();
-                    return prev_thread_ctx;
+                    return prev_task_state;
                 }
                 Some(scheduler) => scheduler.as_mut(),
             };
             if !scheduler.started {
                 interrupts_enable();
-                return prev_thread_ctx;
+                return prev_task_state;
             }
 
             let prev_idx = scheduler.current_task;
@@ -104,28 +104,28 @@ impl Scheduler {
             let (next_idx, next_thread) = match scheduler.find_next_runnable_task() {
                 None => {
                     interrupts_enable();
-                    return prev_thread_ctx;
+                    return prev_task_state;
                 }
                 Some((next_idx, next_thread)) => (next_idx as i32, next_thread),
             };
 
             if next_idx == prev_idx {
                 interrupts_enable();
-                return prev_thread_ctx;
+                return prev_task_state;
             }
 
             next_thread.prepare_switch();
-            let next_thread_ctx = next_thread.get_interrupt_frame();
+            let next_task_state = next_thread.get_state();
 
             if prev_idx >= 0 {
                 let prev_task = &mut scheduler.tasks[prev_idx as usize];
-                prev_task.set_interrupt_frame(prev_thread_ctx);
+                prev_task.set_state(prev_task_state);
             }
 
             scheduler.current_task = next_idx;
 
             interrupts_enable();
-            next_thread_ctx
+            next_task_state
         }
     }
 }
