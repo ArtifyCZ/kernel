@@ -1,5 +1,5 @@
 use crate::platform::drivers::serial::SerialDriver;
-use crate::platform::scheduler::bindings::{interrupts_disable, interrupts_enable};
+use crate::platform::interrupts::Interrupts;
 use crate::platform::tasks::{Task, TaskState};
 use alloc::boxed::Box;
 use alloc::vec::Vec;
@@ -48,7 +48,7 @@ impl Scheduler {
         loop {
             unsafe {
                 self.started = true;
-                interrupts_enable();
+                Interrupts::enable();
                 bindings::sched_start();
             }
         }
@@ -73,7 +73,7 @@ impl Scheduler {
 
     pub fn exit_task(&mut self, prev_task_state: TaskState) -> TaskState {
         unsafe {
-            interrupts_disable();
+            Interrupts::disable();
             // @TODO: implement exit on tasks
             self.heartbeat(prev_task_state)
         }
@@ -82,9 +82,9 @@ impl Scheduler {
     #[allow(static_mut_refs)]
     pub(super) unsafe fn heartbeat(&mut self, prev_task_state: TaskState) -> TaskState {
         unsafe {
-            interrupts_disable();
+            Interrupts::disable();
             if !self.started {
-                interrupts_enable();
+                Interrupts::enable();
                 return prev_task_state;
             }
 
@@ -92,14 +92,14 @@ impl Scheduler {
 
             let (next_idx, next_task) = match self.find_next_runnable_task() {
                 None => {
-                    interrupts_enable();
+                    Interrupts::enable();
                     return prev_task_state;
                 }
                 Some((next_idx, next_task)) => (next_idx as i32, next_task),
             };
 
             if next_idx == prev_idx {
-                interrupts_enable();
+                Interrupts::enable();
                 return prev_task_state;
             }
 
@@ -113,7 +113,7 @@ impl Scheduler {
 
             self.current_task = next_idx;
 
-            interrupts_enable();
+            Interrupts::enable();
             next_task_state
         }
     }

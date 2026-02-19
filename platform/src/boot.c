@@ -179,10 +179,6 @@ __attribute__((used)) void boot(void) {
 
     try_virtual_mapping();
 
-    serial_println("Initializing interrupts...");
-    interrupts_init();
-    serial_println("Interrupts initialized!");
-
     modules_init(module_request.response);
 
     const struct limine_file *font = module_find("kernel-font.psf");

@@ -9,6 +9,7 @@ fn main() {
         ("../platform/include/drivers/keyboard.h", "drivers/keyboard.rs"),
         ("../platform/include/drivers/serial.h", "drivers/serial.rs"),
         ("../platform/include/elf.h", "elf.rs"),
+        ("../platform/include/interrupts.h", "interrupts.rs"),
         ("../platform/include/modules.h", "modules.rs"),
         ("../platform/include/physical_memory_manager.h", "physical_memory_manager.rs"),
         ("../platform/include/platform.h", "platform.rs"),

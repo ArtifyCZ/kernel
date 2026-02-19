@@ -6,6 +6,7 @@ macro_rules! include_bindings {
 
 pub mod drivers;
 pub mod elf;
+pub mod interrupts;
 pub mod memory_layout;
 pub mod modules;
 pub mod physical_memory_manager;

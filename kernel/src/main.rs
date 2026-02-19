@@ -34,6 +34,7 @@ unsafe extern "C" {
 
 use crate::platform::drivers::serial::SerialDriver;
 use crate::platform::elf::Elf;
+use crate::platform::interrupts::Interrupts;
 use crate::platform::memory_layout::PAGE_FRAME_SIZE;
 use crate::platform::modules::Modules;
 use crate::platform::platform::Platform;
@@ -90,6 +91,7 @@ where
 
 fn main(hhdm_offset: u64, rsdp_address: u64) {
     unsafe {
+        Interrupts::init();
         Platform::init(rsdp_address);
 
         SerialDriver::println("Hello from Rust!");
