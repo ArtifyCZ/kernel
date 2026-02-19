@@ -36,6 +36,7 @@ use crate::platform::drivers::serial::SerialDriver;
 use crate::platform::elf::Elf;
 use crate::platform::memory_layout::PAGE_FRAME_SIZE;
 use crate::platform::modules::Modules;
+use crate::platform::platform::Platform;
 use crate::platform::scheduler::Scheduler;
 use crate::platform::syscalls::Syscalls;
 use crate::platform::tasks::Task;
@@ -87,8 +88,10 @@ where
     scheduler.add(task);
 }
 
-fn main(hhdm_offset: u64) {
+fn main(hhdm_offset: u64, rsdp_address: u64) {
     unsafe {
+        Platform::init(rsdp_address);
+
         SerialDriver::println("Hello from Rust!");
 
         Syscalls::init();

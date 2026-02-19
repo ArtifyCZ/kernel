@@ -10,4 +10,4 @@ _Noreturn void hcf(void);
 // linker script accordingly.
 __attribute__((used)) void boot(void);
 
-extern void kernel_main(uint64_t hhdm_offset);
+extern void kernel_main(uint64_t hhdm_offset, uintptr_t rsdp_address);

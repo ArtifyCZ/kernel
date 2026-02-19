@@ -7,7 +7,6 @@
 #include "interrupts.h"
 #include "modules.h"
 #include "physical_memory_manager.h"
-#include "platform.h"
 #include "psf.h"
 #include "drivers/serial.h"
 #include "terminal.h"
@@ -199,14 +198,9 @@ __attribute__((used)) void boot(void) {
     terminal_set_background_color(0x04121B);
     terminal_clear();
 
-    const struct platform_config platform_config = {
-        .rsdp_address = rsdp_request.response->address,
-    };
-    platform_init(&platform_config);
-
     terminal_println("Hello world!");
 
-    kernel_main(g_hhdm_offset);
+    kernel_main(g_hhdm_offset, (uintptr_t) rsdp_request.response->address);
 
     serial_println("=== KERNEL PANIC ===");
     serial_println("kernel_main function has returned");

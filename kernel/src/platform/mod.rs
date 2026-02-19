@@ -10,6 +10,7 @@ pub mod memory_layout;
 pub mod modules;
 pub mod physical_memory_manager;
 pub mod physical_page_frame;
+pub mod platform;
 pub mod scheduler;
 pub mod syscalls;
 pub mod tasks;
