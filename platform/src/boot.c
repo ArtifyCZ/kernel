@@ -7,13 +7,12 @@
 #include "interrupts.h"
 #include "modules.h"
 #include "physical_memory_manager.h"
+#include "platform.h"
 #include "psf.h"
 #include "drivers/serial.h"
 #include "terminal.h"
 #include "virtual_address_allocator.h"
 #include "virtual_memory_manager.h"
-#include "arch/x86_64/acpi.h"
-#include "arch/x86_64/gdt.h"
 
 // Set the base revision to 4, this is recommended as this is the latest
 // base revision described by the Limine boot protocol specification.
@@ -181,21 +180,9 @@ __attribute__((used)) void boot(void) {
 
     try_virtual_mapping();
 
-#if defined (__x86_64__)
-    serial_println("Setting up GDT...");
-    gdt_init();
-    serial_println("GDT initialized!");
-#endif
-
     serial_println("Initializing interrupts...");
     interrupts_init();
     serial_println("Interrupts initialized!");
-
-#if defined (__x86_64__)
-    serial_println("Initializing ACPI...");
-    acpi_init(rsdp_request.response->address);
-    serial_println("ACPI initialized!");
-#endif
 
     modules_init(module_request.response);
 
@@ -211,6 +198,11 @@ __attribute__((used)) void boot(void) {
     terminal_set_foreground_color(0xD4DBDF);
     terminal_set_background_color(0x04121B);
     terminal_clear();
+
+    const struct platform_config platform_config = {
+        .rsdp_address = rsdp_request.response->address,
+    };
+    platform_init(&platform_config);
 
     terminal_println("Hello world!");
 

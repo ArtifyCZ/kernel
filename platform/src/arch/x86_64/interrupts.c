@@ -59,8 +59,6 @@ void interrupts_init(void) {
     };
 
     __asm__ volatile("lidt %0" : : "m"(ptr));
-
-    interrupts_enable();
 }
 
 void interrupts_enable(void) {
