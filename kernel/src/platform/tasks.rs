@@ -20,6 +20,9 @@ pub const TASK_KERNEL_STACK_SIZE: usize = 4 * PAGE_FRAME_SIZE;
 #[repr(transparent)]
 pub struct TaskState(pub(super) *mut bindings::interrupt_frame);
 
+unsafe impl Send for TaskState {}
+
+#[derive(Debug)]
 pub struct Task {
     #[allow(unused)]
     user_ctx: Option<Arc<VirtualMemoryManagerContext>>,

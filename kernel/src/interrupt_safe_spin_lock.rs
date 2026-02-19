@@ -3,6 +3,7 @@ use core::cell::UnsafeCell;
 use core::ops::{Deref, DerefMut};
 use core::sync::atomic::{AtomicBool, Ordering};
 
+#[derive(Debug)]
 pub struct InterruptSafeSpinLock<T> {
     locked: AtomicBool,
     data: UnsafeCell<T>,
@@ -26,6 +27,10 @@ impl<T> Default for InterruptSafeSpinLock<T> where T: Default {
         Self::new(T::default())
     }
 }
+
+unsafe impl<T: Send> Send for InterruptSafeSpinLock<T> {}
+
+unsafe impl<T: Send> Sync for InterruptSafeSpinLock<T> {}
 
 pub struct InterruptSafeSpinLockGuard<'a, T>(&'a InterruptSafeSpinLock<T>);
 
@@ -69,3 +74,5 @@ impl<'a, T> Drop for InterruptSafeSpinLockGuard<'a, T> {
         }
     }
 }
+
+unsafe impl<T: Sync> Sync for InterruptSafeSpinLockGuard<'_, T> {}

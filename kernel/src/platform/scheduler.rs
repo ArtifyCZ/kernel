@@ -21,21 +21,13 @@ impl Default for Scheduler {
     }
 }
 
-static mut SCHEDULER: Option<&'static InterruptSafeSpinLock<Scheduler>> = None;
-
 impl Scheduler {
-    pub unsafe fn init() {
+    pub fn init() -> &'static InterruptSafeSpinLock<Self> {
         unsafe {
             SerialDriver::println("Initializing scheduler...");
-            SCHEDULER = Some(Box::leak(Box::new(Default::default())));
+            let scheduler = Box::leak(Box::new(Default::default()));
             SerialDriver::println("Scheduler initialized!");
-        }
-    }
-
-    #[allow(static_mut_refs)]
-    pub unsafe fn get_instance() -> InterruptSafeSpinLockGuard<'static, Self> {
-        unsafe {
-            SCHEDULER.as_ref().unwrap().lock()
+            scheduler
         }
     }
 
@@ -67,7 +59,6 @@ impl Scheduler {
         }
     }
 
-    #[allow(static_mut_refs)]
     pub(super) unsafe fn heartbeat(&mut self, prev_task_state: TaskState) -> TaskState {
         unsafe {
             if !self.started {

@@ -19,6 +19,7 @@ bitflags! {
     }
 }
 
+#[derive(Debug)]
 pub struct VirtualMemoryManagerContext {
     context: bindings::vmm_context,
 }

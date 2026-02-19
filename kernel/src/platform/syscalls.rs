@@ -4,6 +4,7 @@ use crate::platform::syscalls::bindings::syscall_frame;
 use crate::platform::terminal::Terminal;
 use core::ffi::c_void;
 use core::ptr::{null_mut, slice_from_raw_parts};
+use crate::interrupt_safe_spin_lock::InterruptSafeSpinLock;
 use crate::platform::tasks::TaskState;
 
 mod bindings {
@@ -13,21 +14,20 @@ mod bindings {
 pub struct Syscalls;
 
 impl Syscalls {
-    pub unsafe fn init() {
+    pub unsafe fn init(scheduler: &'static InterruptSafeSpinLock<Scheduler>) {
         unsafe {
             SerialDriver::println("Initializing syscalls...");
-            bindings::syscalls_init(Some(Self::syscalls_dispatch), null_mut());
+            bindings::syscalls_init(Some(Self::syscalls_dispatch), scheduler as *const _ as *mut _);
             SerialDriver::println("Syscalls initialized!");
         }
     }
 
-    fn sys_exit(frame: &mut syscall_frame) -> u64 {
+    fn sys_exit(frame: &mut syscall_frame, scheduler: &InterruptSafeSpinLock<Scheduler>) -> u64 {
         unsafe {
             SerialDriver::println("=== EXIT SYSCALL ===");
             let prev_task_interrupt_frame = (*frame.interrupt_frame).cast();
             let prev_task_state = TaskState(prev_task_interrupt_frame);
-            let mut scheduler = Scheduler::get_instance();
-            let next_task_state = scheduler.exit_task(prev_task_state);
+            let next_task_state = scheduler.lock().exit_task(prev_task_state);
             let next_task_interrupt_frame = next_task_state.0;
             *frame.interrupt_frame = next_task_interrupt_frame.cast();
             0
@@ -63,11 +63,12 @@ impl Syscalls {
 
     unsafe extern "C" fn syscalls_dispatch(
         frame: *mut bindings::syscall_frame,
-        _arg: *mut c_void,
+        scheduler: *mut c_void,
     ) -> u64 {
         let frame = unsafe { frame.as_mut() }.unwrap();
+        let scheduler: &'static InterruptSafeSpinLock<Scheduler> = unsafe { &*scheduler.cast() };
         match frame.num {
-            0x00 => Self::sys_exit(frame),
+            0x00 => Self::sys_exit(frame, scheduler),
             0x01 => Self::sys_write(frame),
             _ => panic!("Non-existent syscall triggered!"), // @TODO: add better handling
         }

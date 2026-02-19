@@ -15,6 +15,7 @@ use alloc::ffi::CString;
 use alloc::string::ToString;
 use alloc::sync::Arc;
 use core::ffi::c_void;
+use core::ops::DerefMut;
 use core::str::FromStr;
 
 #[panic_handler]
@@ -70,7 +71,7 @@ fn thread_keyboard() {
     }
 }
 
-fn spawn_thread<F>(f: F)
+fn spawn_thread<F>(scheduler: &mut Scheduler, f: F)
 where
     F: FnOnce() + 'static,
 {
@@ -86,7 +87,6 @@ where
     let arg = Box::into_raw(Box::new(f)).cast();
 
     let task = Task::new_kernel(trampoline::<F>, arg, 4 * PAGE_FRAME_SIZE);
-    let mut scheduler = unsafe { Scheduler::get_instance() };
     scheduler.add(task);
 }
 
@@ -97,18 +97,18 @@ fn main(hhdm_offset: u64, rsdp_address: u64) {
 
         SerialDriver::println("Hello from Rust!");
 
-        Syscalls::init();
+        let scheduler = Scheduler::init();
+
+        Syscalls::init(scheduler);
         Elf::init(hhdm_offset);
         Timer::init(100);
 
         KeyboardDriver::init();
 
-        Ticker::init();
+        Ticker::init(scheduler);
 
-        Scheduler::init();
-
-        spawn_thread(thread_heartbeat);
-        spawn_thread(thread_keyboard);
+        spawn_thread(scheduler.lock().deref_mut(), thread_heartbeat);
+        spawn_thread(scheduler.lock().deref_mut(), thread_keyboard);
 
         {
             let init_elf_string = CString::from_str("init.elf").expect("Failed to create CString");
@@ -116,14 +116,10 @@ fn main(hhdm_offset: u64, rsdp_address: u64) {
             let mut init_ctx = VirtualMemoryManagerContext::create();
             let entrypoint_vaddr = Elf::load(&mut init_ctx, init_elf).unwrap();
             let task = Task::new_user(Arc::new(init_ctx), entrypoint_vaddr);
-            let mut scheduler = Scheduler::get_instance();
-            scheduler.add(task);
+            scheduler.lock().add(task);
         }
 
-        {
-            let mut scheduler = Scheduler::get_instance();
-            scheduler.start();
-        }
+        scheduler.lock().start();
 
         loop {
             // Now just wait for the first interrupt
