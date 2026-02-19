@@ -26,7 +26,7 @@ impl Syscalls {
             SerialDriver::println("=== EXIT SYSCALL ===");
             let prev_task_interrupt_frame = (*frame.interrupt_frame).cast();
             let prev_task_state = TaskState(prev_task_interrupt_frame);
-            let scheduler = Scheduler::get_instance();
+            let mut scheduler = Scheduler::get_instance();
             let next_task_state = scheduler.exit_task(prev_task_state);
             let next_task_interrupt_frame = next_task_state.0;
             *frame.interrupt_frame = next_task_interrupt_frame.cast();

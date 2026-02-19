@@ -5,7 +5,6 @@
 #include "io_wrapper.h"
 #include "stddef.h"
 #include "lapic.h"
-#include "scheduler.h"
 
 #define PIT_FREQ 1193182
 #define TARGET_MS 10

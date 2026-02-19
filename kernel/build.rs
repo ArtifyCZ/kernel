@@ -13,7 +13,6 @@ fn main() {
         ("../platform/include/modules.h", "modules.rs"),
         ("../platform/include/physical_memory_manager.h", "physical_memory_manager.rs"),
         ("../platform/include/platform.h", "platform.rs"),
-        ("../platform/include/scheduler.h", "scheduler.rs"),
         ("../platform/include/syscalls.h", "syscalls.rs"),
         ("../platform/include/tasks.h", "tasks.rs"),
         ("../platform/include/terminal.h", "terminal.rs"),

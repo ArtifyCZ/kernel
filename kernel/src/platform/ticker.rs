@@ -22,7 +22,7 @@ impl Ticker {
         unsafe {
             let prev_frame: *mut super::timer::bindings::interrupt_frame = frame.read();
             let prev_state = TaskState(prev_frame.cast());
-            let scheduler = Scheduler::get_instance();
+            let mut scheduler = Scheduler::get_instance();
             let next_state: TaskState = scheduler.heartbeat(prev_state);
             let next_frame: *mut super::timer::bindings::interrupt_frame = next_state.0.cast();
             frame.write(next_frame);

@@ -7,7 +7,6 @@
 #include "gdt.h"
 #include "io_wrapper.h"
 #include "lapic.h"
-#include "scheduler.h"
 #include "drivers/serial.h"
 
 // The IDT structure

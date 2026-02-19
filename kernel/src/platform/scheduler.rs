@@ -1,12 +1,8 @@
+use crate::interrupt_safe_spin_lock::{InterruptSafeSpinLock, InterruptSafeSpinLockGuard};
 use crate::platform::drivers::serial::SerialDriver;
-use crate::platform::interrupts::Interrupts;
 use crate::platform::tasks::{Task, TaskState};
 use alloc::boxed::Box;
 use alloc::vec::Vec;
-
-mod bindings {
-    include_bindings!("scheduler.rs");
-}
 
 #[repr(C)]
 pub struct Scheduler {
@@ -25,33 +21,26 @@ impl Default for Scheduler {
     }
 }
 
-static mut SCHEDULER: Option<Box<Scheduler>> = None;
+static mut SCHEDULER: Option<&'static InterruptSafeSpinLock<Scheduler>> = None;
 
 impl Scheduler {
     pub unsafe fn init() {
         unsafe {
             SerialDriver::println("Initializing scheduler...");
-            SCHEDULER = Some(Default::default());
+            SCHEDULER = Some(Box::leak(Box::new(Default::default())));
             SerialDriver::println("Scheduler initialized!");
         }
     }
 
     #[allow(static_mut_refs)]
-    pub unsafe fn get_instance() -> &'static mut Self {
+    pub unsafe fn get_instance() -> InterruptSafeSpinLockGuard<'static, Self> {
         unsafe {
-            SCHEDULER.as_mut().unwrap().as_mut()
+            SCHEDULER.as_ref().unwrap().lock()
         }
     }
 
-    #[allow(static_mut_refs)]
-    pub unsafe fn start(&mut self) -> ! {
-        loop {
-            unsafe {
-                self.started = true;
-                Interrupts::enable();
-                bindings::sched_start();
-            }
-        }
+    pub fn start(&mut self) {
+        self.started = true;
     }
 
     fn find_next_runnable_task(&self) -> Option<(usize, &Task)> {
@@ -73,7 +62,6 @@ impl Scheduler {
 
     pub fn exit_task(&mut self, prev_task_state: TaskState) -> TaskState {
         unsafe {
-            Interrupts::disable();
             // @TODO: implement exit on tasks
             self.heartbeat(prev_task_state)
         }
@@ -82,9 +70,7 @@ impl Scheduler {
     #[allow(static_mut_refs)]
     pub(super) unsafe fn heartbeat(&mut self, prev_task_state: TaskState) -> TaskState {
         unsafe {
-            Interrupts::disable();
             if !self.started {
-                Interrupts::enable();
                 return prev_task_state;
             }
 
@@ -92,14 +78,12 @@ impl Scheduler {
 
             let (next_idx, next_task) = match self.find_next_runnable_task() {
                 None => {
-                    Interrupts::enable();
                     return prev_task_state;
                 }
                 Some((next_idx, next_task)) => (next_idx as i32, next_task),
             };
 
             if next_idx == prev_idx {
-                Interrupts::enable();
                 return prev_task_state;
             }
 
@@ -113,7 +97,6 @@ impl Scheduler {
 
             self.current_task = next_idx;
 
-            Interrupts::enable();
             next_task_state
         }
     }

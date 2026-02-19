@@ -5,6 +5,7 @@ extern crate alloc;
 
 mod allocator;
 mod entrypoint;
+mod interrupt_safe_spin_lock;
 mod platform;
 mod spin_lock;
 
@@ -85,7 +86,7 @@ where
     let arg = Box::into_raw(Box::new(f)).cast();
 
     let task = Task::new_kernel(trampoline::<F>, arg, 4 * PAGE_FRAME_SIZE);
-    let scheduler = unsafe { Scheduler::get_instance() };
+    let mut scheduler = unsafe { Scheduler::get_instance() };
     scheduler.add(task);
 }
 
@@ -115,11 +116,23 @@ fn main(hhdm_offset: u64, rsdp_address: u64) {
             let mut init_ctx = VirtualMemoryManagerContext::create();
             let entrypoint_vaddr = Elf::load(&mut init_ctx, init_elf).unwrap();
             let task = Task::new_user(Arc::new(init_ctx), entrypoint_vaddr);
-            let scheduler = Scheduler::get_instance();
+            let mut scheduler = Scheduler::get_instance();
             scheduler.add(task);
         }
 
-        let scheduler = Scheduler::get_instance();
-        scheduler.start()
+        {
+            let mut scheduler = Scheduler::get_instance();
+            scheduler.start();
+        }
+
+        loop {
+            // Now just wait for the first interrupt
+            // @TODO: use yield or exit syscall
+            #[cfg(target_arch = "x86_64")]
+            core::arch::asm!("hlt", options(nomem, nostack, preserves_flags));
+
+            #[cfg(target_arch = "aarch64")]
+            core::arch::asm!("wfi", options(nomem, nostack, preserves_flags));
+        }
     }
 }
