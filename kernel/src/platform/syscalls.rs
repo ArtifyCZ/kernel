@@ -12,6 +12,12 @@ mod bindings {
     include_bindings!("syscalls.rs");
 }
 
+use crate::platform::memory_layout::PAGE_FRAME_SIZE;
+use crate::platform::physical_memory_manager::PhysicalMemoryManager;
+use crate::platform::virtual_memory_manager_context::{
+    VirtualMemoryManagerContext, VirtualMemoryMappingFlags,
+};
+use crate::platform::virtual_page_address::VirtualPageAddress;
 pub use bindings::syscall_args;
 
 pub struct Syscalls;
@@ -76,7 +82,7 @@ impl Syscalls {
         unsafe { bindings::syscalls_raw(args) }
     }
 
-    fn sys_exit(frame: &mut syscall_frame, scheduler: &InterruptSafeSpinLock<Scheduler>) -> u64 {
+    fn sys_exit(frame: &mut syscall_frame, scheduler: &InterruptSafeSpinLock<Scheduler>) {
         unsafe {
             SerialDriver::println("=== EXIT SYSCALL ===");
             let prev_task_interrupt_frame = (*frame.interrupt_frame).cast();
@@ -93,25 +99,28 @@ impl Syscalls {
                 let next_task_interrupt_frame = next_task.get_state().0;
                 *frame.interrupt_frame = next_task_interrupt_frame.cast();
             }
-
-            0
         }
     }
 
-    fn sys_write(frame: &mut bindings::syscall_frame) -> u64 {
+    fn sys_write(
+        frame: &mut bindings::syscall_frame,
+        scheduler: &InterruptSafeSpinLock<Scheduler>,
+    ) {
+        let mut scheduler = scheduler.lock();
+        let task = scheduler.get_current_task_mut().unwrap();
         let fd = frame.a[0];
         let user_buf = frame.a[1];
         let count = frame.a[2];
 
         // stdout or stderr
         if fd != 1 && fd != 2 {
-            return 1; // EBADF: Bad File Descriptor
+            unsafe { task.set_syscall_return_value(1) }; // EBADF: Bad File Descriptor
         }
 
         // Basic Range Check: Is the buffer in User Space?
         // On x86_64, user addresses are usually < 0x00007FFFFFFFFFFF
         if user_buf >= 0x800000000000 || (user_buf + count) >= 0x800000000000 {
-            return 1; // EFAULT: Bad Address
+            unsafe { task.set_syscall_return_value(1) }; // EFAULT: Bad Address
         }
 
         let user_buf = user_buf as *const u8;
@@ -122,13 +131,13 @@ impl Syscalls {
             SerialDriver::write(user_buf);
             Terminal::print_bytes(user_buf);
         }
-        0
+        unsafe { task.set_syscall_return_value(0) };
     }
 
     fn sys_clone(
         frame: &mut bindings::syscall_frame,
         scheduler: &'static InterruptSafeSpinLock<Scheduler>,
-    ) -> u64 {
+    ) {
         let mut scheduler = scheduler.lock();
         let vmm = {
             let current_task = scheduler
@@ -141,30 +150,59 @@ impl Syscalls {
         let stack_pointer = frame.a[1] as usize;
         let entrypoint = frame.a[2] as usize;
         if stack_pointer >= 0x800000000000 || entrypoint >= 0x800000000000 {
-            return 1;
+            unsafe {
+                scheduler
+                    .get_current_task_mut()
+                    .unwrap()
+                    .set_syscall_return_value(1);
+            }
         }
         unsafe {
             SerialDriver::println(&format!(
                 "stack ptr: {}; entrypoint ptr: {}",
                 stack_pointer, entrypoint
             ));
+            // @TODO: move stack allocation to the init process from the kernel
+            for i in 0..4 {
+                // allocate 4 pages as stack
+                let page_vaddr = stack_pointer - (i + 1) * PAGE_FRAME_SIZE;
+                #[allow(mutable_transmutes)]
+                unsafe {
+                    let page_phys = PhysicalMemoryManager::alloc_frame().unwrap();
+                    let vmm = vmm.as_ref();
+                    let vmm: &mut VirtualMemoryManagerContext = core::mem::transmute(vmm);
+                    vmm.map_page(
+                        VirtualPageAddress::new(page_vaddr).unwrap(),
+                        page_phys,
+                        VirtualMemoryMappingFlags::PRESENT
+                            | VirtualMemoryMappingFlags::USER
+                            | VirtualMemoryMappingFlags::WRITE,
+                    )
+                    .unwrap();
+                }
+            }
         }
         let new_task = Task::new_user(vmm, stack_pointer, entrypoint);
         scheduler.add(new_task);
-        0
+        unsafe {
+            scheduler
+                .get_current_task_mut()
+                .unwrap()
+                .set_syscall_return_value(0);
+        }
     }
 
     unsafe extern "C" fn syscalls_dispatch(
         frame: *mut bindings::syscall_frame,
         scheduler: *mut c_void,
-    ) -> u64 {
+    ) {
         let frame = unsafe { frame.as_mut() }.unwrap();
         let scheduler: &'static InterruptSafeSpinLock<Scheduler> = unsafe { &*scheduler.cast() };
         match frame.num {
             0x00 => Self::sys_exit(frame, scheduler),
-            0x01 => Self::sys_write(frame),
+            0x01 => Self::sys_write(frame, scheduler),
             0x02 => Self::sys_clone(frame, scheduler),
             _ => panic!("Non-existent syscall triggered!"), // @TODO: add better handling
-        }
+        };
     }
 }

@@ -27,8 +27,6 @@ pub struct Task {
     #[allow(unused)]
     user_ctx: Option<Arc<VirtualMemoryManagerContext>>,
     kernel_stack: Pin<Box<[u8]>>,
-    #[allow(unused)]
-    user_stack: Option<Pin<Box<[u8]>>>,
     state: TaskState,
 }
 
@@ -37,31 +35,6 @@ impl Task {
         let kernel_stack = unsafe {
             Pin::new_unchecked(Box::<[u8]>::new_zeroed_slice(TASK_KERNEL_STACK_SIZE).assume_init())
         };
-        // @TODO: move the user-stack allocation concern to the caller of this function
-        let user_stack = unsafe {
-            Pin::new_unchecked(Box::<[u8]>::new_zeroed_slice(4 * PAGE_FRAME_SIZE).assume_init())
-        };
-        let user_stack_top_vaddr = user_stack_vaddr;
-        for i in 0..4 {
-            // allocate 4 pages as stack
-            let page_vaddr = user_stack_top_vaddr - (i + 1) * PAGE_FRAME_SIZE;
-            #[allow(mutable_transmutes)]
-            unsafe {
-                let page_phys = PhysicalMemoryManager::alloc_frame().unwrap();
-                // @TODO: REPLACE THIS AWFUL CODE WITH PROBABLY ATOMICS OR SOMETHING
-                let user_ctx: &VirtualMemoryManagerContext = user_ctx.as_ref();
-                let user_ctx: &mut VirtualMemoryManagerContext = core::mem::transmute(user_ctx);
-                user_ctx
-                    .map_page(
-                        VirtualPageAddress::new(page_vaddr).unwrap(),
-                        page_phys,
-                        VirtualMemoryMappingFlags::PRESENT
-                            | VirtualMemoryMappingFlags::USER
-                            | VirtualMemoryMappingFlags::WRITE,
-                    )
-                    .unwrap();
-            }
-        }
 
         let state = unsafe {
             let user_ctx_ptr: *const vmm_context = core::mem::transmute(user_ctx.inner());
@@ -69,14 +42,13 @@ impl Task {
             TaskState(bindings::task_setup_user(
                 user_ctx_ptr,
                 entrypoint_vaddr,
-                user_stack_top_vaddr,
+                user_stack_vaddr,
                 kernel_stack_top,
             ))
         };
 
         Self {
             user_ctx: Some(user_ctx),
-            user_stack: Some(user_stack),
             kernel_stack,
             state,
         }
@@ -98,7 +70,6 @@ impl Task {
 
         Self {
             user_ctx: None,
-            user_stack: None,
             kernel_stack,
             state,
         }
@@ -114,6 +85,12 @@ impl Task {
 
     pub fn set_state(&mut self, state: TaskState) {
         self.state = state;
+    }
+
+    pub(super) unsafe fn set_syscall_return_value(&mut self, value: u64) {
+        unsafe {
+            bindings::task_set_syscall_return_value(self.state.0, value);
+        }
     }
 
     pub(super) unsafe fn prepare_switch(&self) {

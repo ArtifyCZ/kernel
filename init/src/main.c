@@ -23,15 +23,9 @@ void rest(void) {
             break;
         }
     }
-    print("Trying to invoke exit syscall...\n");
-    sys_exit();
-    print("THIS SHOULD NOT HAPPEN!\n");
-    while (1) {
-    }
-
 }
 
-void _start(void) {
+int main(void) {
     const char message[] = "Hello world from user-space!\n";
     print(message);
 
@@ -41,4 +35,5 @@ void _start(void) {
     print("Parent is moving on...\n");
 
     rest();
+    return 0;
 }

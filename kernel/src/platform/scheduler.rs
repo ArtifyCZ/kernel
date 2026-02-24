@@ -53,7 +53,17 @@ impl Scheduler {
     }
 
     pub fn exit_current_task(&mut self) {
-        // @TODO: implement exit on tasks
+        if self.current_task < 0 {
+            return;
+        }
+
+        self.tasks.remove(self.current_task as usize);
+
+        if self.current_task == 0 {
+            self.current_task = self.tasks.len() as i32 - 1;
+        } else {
+            self.current_task -= 1;
+        }
     }
 
     pub fn get_current_task_mut(&mut self) -> Option<&mut Task> {

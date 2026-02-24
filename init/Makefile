@@ -13,9 +13,12 @@ INIT_SRC_FILES += $(wildcard $(init_src_dir)/*.c)
 
 INIT_ASM_FILES :=
 INIT_ASM_FILES += $(wildcard $(init_src_dir)/*.$(ARCH).asm)
+INIT_ASM_FILES += $(wildcard $(init_src_dir)/*.$(ARCH).S)
 
 INIT_OBJS :=
 INIT_OBJS += $(patsubst $(init_src_dir)/%.c,$(init_obj_build_dir)/%.$(ARCH).o,$(INIT_SRC_FILES))
+INIT_OBJS += $(patsubst $(init_src_dir)/%.$(Arch).asm,$(init_obj_build_dir)/%.$(ARCH).o,$(INIT_ASM_FILES))
+INIT_OBJS += $(patsubst $(init_src_dir)/%.$(Arch).S,$(init_obj_build_dir)/%.$(ARCH).o,$(INIT_ASM_FILES))
 
 
 INCLUDE_HEADERS := $(DEPS)/freestnd-c-hdrs/include

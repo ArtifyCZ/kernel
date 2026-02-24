@@ -5,12 +5,14 @@ extern crate alloc;
 
 mod allocator;
 mod entrypoint;
+mod init_process;
 mod interrupt_safe_spin_lock;
 mod platform;
-mod scheduler;
 mod spin_lock;
 
+use crate::init_process::spawn_init_process;
 use crate::platform::drivers::keyboard::KeyboardDriver;
+use crate::platform::platform::Platform;
 use alloc::boxed::Box;
 use alloc::ffi::CString;
 use alloc::string::ToString;
@@ -39,10 +41,8 @@ use crate::platform::drivers::serial::SerialDriver;
 use crate::platform::elf::Elf;
 use crate::platform::interrupts::Interrupts;
 use crate::platform::memory_layout::PAGE_FRAME_SIZE;
-use crate::platform::modules::Modules;
-use crate::platform::platform::Platform;
 use crate::platform::scheduler::Scheduler;
-use crate::platform::syscalls::{Syscalls, syscall_args};
+use crate::platform::syscalls::Syscalls;
 use crate::platform::tasks::Task;
 use crate::platform::terminal::Terminal;
 use crate::platform::ticker::Ticker;
@@ -110,15 +110,7 @@ fn main(hhdm_offset: u64, rsdp_address: u64) {
 
         spawn_thread(scheduler.lock().deref_mut(), thread_heartbeat);
         spawn_thread(scheduler.lock().deref_mut(), thread_keyboard);
-
-        {
-            let init_elf_string = CString::from_str("init.elf").expect("Failed to create CString");
-            let init_elf = Modules::find(init_elf_string.as_c_str()).unwrap();
-            let mut init_ctx = VirtualMemoryManagerContext::create();
-            let entrypoint_vaddr = Elf::load(&mut init_ctx, init_elf).unwrap();
-            let task = Task::new_user(Arc::new(init_ctx), 0x7FFFFFFFF000usize, entrypoint_vaddr);
-            scheduler.lock().add(task);
-        }
+        spawn_init_process(scheduler);
 
         scheduler.lock().start();
 

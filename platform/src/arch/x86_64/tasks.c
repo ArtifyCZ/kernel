@@ -51,3 +51,7 @@ struct interrupt_frame *task_setup_kernel(
 void task_prepare_switch(const uintptr_t kernel_stack_top) {
     gdt_set_kernel_stack(kernel_stack_top);
 }
+
+void task_set_syscall_return_value(struct interrupt_frame *frame, const uint64_t value) {
+    frame->rax = value;
+}

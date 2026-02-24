@@ -31,9 +31,7 @@ bool syscalls_interrupt_handler(struct interrupt_frame **frame, void *args) {
         },
     };
 
-    struct interrupt_frame *previous_frame = *frame;
-    const uint64_t return_value = g_syscall_handler(&syscall_frame, g_syscall_handler_arg);
-    previous_frame->rax = return_value;
+    g_syscall_handler(&syscall_frame, g_syscall_handler_arg);
 
     return true;
 }

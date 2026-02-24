@@ -13,11 +13,8 @@ use core::ops::Add;
 use core::ptr::null_mut;
 
 static mut NEXT_AVAILABLE_VIRTUAL_ADDRESS: Option<VirtualAddress> = None;
-
 static mut LAST_MAPPED_VIRTUAL_PAGE: Option<VirtualPageAddress> = None;
-
 static mut VMM_CONTEXT: Option<VirtualMemoryManagerContext> = None;
-
 static HEAP_LOCK: SpinLock = SpinLock::new();
 
 pub struct Allocator;
@@ -27,7 +24,6 @@ pub static GLOBAL_ALLOCATOR: Allocator = Allocator;
 
 impl Add<usize> for VirtualAddress {
     type Output = VirtualAddress;
-
     fn add(self, rhs: usize) -> Self::Output {
         VirtualAddress::new(self.inner() + rhs).unwrap()
     }
@@ -36,88 +32,82 @@ impl Add<usize> for VirtualAddress {
 #[allow(static_mut_refs)]
 unsafe impl GlobalAlloc for Allocator {
     unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
+        // pad_to_align ensures the size is a multiple of the alignment,
+        // but we still need to ensure the START address is aligned.
         let layout = layout.pad_to_align();
-        let _ = HEAP_LOCK.lock();
-        let vmm_context = unsafe {
-            if let Some(ref mut vmm_context) = VMM_CONTEXT {
-                vmm_context
-            } else {
-                let vmm_context = VirtualMemoryManagerContext::get_kernel_context();
-                VMM_CONTEXT = Some(vmm_context);
-                VMM_CONTEXT.as_mut().unwrap_unchecked()
-            }
+        let _lock = HEAP_LOCK.lock();
+
+        let vmm_context = if let Some(ref mut vmm_context) = VMM_CONTEXT {
+            vmm_context
+        } else {
+            let vmm_context = VirtualMemoryManagerContext::get_kernel_context();
+            VMM_CONTEXT = Some(vmm_context);
+            VMM_CONTEXT.as_mut().unwrap_unchecked()
         };
 
         loop {
-            let next_available_virtual_address = unsafe { NEXT_AVAILABLE_VIRTUAL_ADDRESS };
-            let last_mapped_virtual_page = unsafe { LAST_MAPPED_VIRTUAL_PAGE };
-            if let Some(last_mapped_virtual_page) = last_mapped_virtual_page {
-                if let Some(next_available_virtual_address) = next_available_virtual_address {
-                    if next_available_virtual_address + layout.size()
-                        <= last_mapped_virtual_page.end()
-                    {
-                        break;
+            if let Some(mut next_addr) = NEXT_AVAILABLE_VIRTUAL_ADDRESS {
+                // --- ALIGNMENT LOGIC ---
+                // Calculate the padding needed to satisfy layout.align()
+                let addr_val = next_addr.inner();
+                let align = layout.align();
+                let aligned_addr = (addr_val + align - 1) & !(align - 1);
+
+                // Temporarily update next_addr to the aligned position for the bounds check
+                next_addr = VirtualAddress::new(aligned_addr).unwrap();
+
+                if let Some(last_page) = LAST_MAPPED_VIRTUAL_PAGE {
+                    if next_addr.inner() + layout.size() <= last_page.end().inner() {
+                        // Success! Update global state and return
+                        let ptr = next_addr.inner() as *mut u8;
+                        NEXT_AVAILABLE_VIRTUAL_ADDRESS = Some(next_addr + layout.size());
+                        return ptr;
                     }
                 }
             }
 
-            let new_page = unsafe {
-                PhysicalMemoryManager::alloc_frame()
-                    .expect("Failed to allocate physical page frame")
-            };
-
-            let next_virt_page_addr = unsafe {
-                if let Some(last_mapped_virtual_page) = LAST_MAPPED_VIRTUAL_PAGE {
-                    last_mapped_virtual_page.next_page()
-                } else {
-                    VirtualAddressAllocator::alloc_range(PAGE_FRAME_SIZE * 1024 * 1024)
+            // If we reach here, we either have no NEXT_AVAILABLE or no space left.
+            // Map a new page.
+            let new_frame = match PhysicalMemoryManager::alloc_frame() {
+                Ok(frame) => frame,
+                Err(_err) => {
+                    SerialDriver::write(b"OOM: Physical frame allocation failed\n");
+                    return null_mut();
                 }
             };
 
-            if unsafe { vmm_context.translate(next_virt_page_addr) }
-                .unwrap()
-                .is_some()
-            {
-                unsafe { SerialDriver::write(b"Page already mapped\n") };
-                return null_mut();
-            }
-
-            if unsafe {
-                vmm_context.map_page(
-                    next_virt_page_addr,
-                    new_page,
-                    VirtualMemoryMappingFlags::PRESENT | VirtualMemoryMappingFlags::WRITE,
-                )
-            }
-            .is_err()
-            {
-                unsafe { SerialDriver::write(b"Failed to map page\n") };
-                return null_mut();
-            }
-
-            unsafe {
-                LAST_MAPPED_VIRTUAL_PAGE = Some(next_virt_page_addr);
-
-                if let None = NEXT_AVAILABLE_VIRTUAL_ADDRESS {
-                    NEXT_AVAILABLE_VIRTUAL_ADDRESS = Some(next_virt_page_addr.start())
-                }
-            }
-        }
-
-        unsafe {
-            if let Some(next_available_virtual_address) = NEXT_AVAILABLE_VIRTUAL_ADDRESS {
-                let ptr = next_available_virtual_address.inner() as *mut u8;
-                NEXT_AVAILABLE_VIRTUAL_ADDRESS =
-                    Some(next_available_virtual_address + layout.size());
-                ptr
+            let next_virt_page_addr = if let Some(last_page) = LAST_MAPPED_VIRTUAL_PAGE {
+                last_page.next_page()
             } else {
-                null_mut()
+                // Initial heap setup: allocate a large virtual range
+                VirtualAddressAllocator::alloc_range(PAGE_FRAME_SIZE * 1024 * 1024)
+            };
+
+            // Ensure not already mapped
+            if vmm_context.translate(next_virt_page_addr).unwrap().is_some() {
+                SerialDriver::write(b"Allocator Error: Page already mapped\n");
+                return null_mut();
             }
+
+            if vmm_context.map_page(
+                next_virt_page_addr,
+                new_frame,
+                VirtualMemoryMappingFlags::PRESENT | VirtualMemoryMappingFlags::WRITE,
+            ).is_err() {
+                SerialDriver::write(b"Allocator Error: Failed to map page\n");
+                return null_mut();
+            }
+
+            LAST_MAPPED_VIRTUAL_PAGE = Some(next_virt_page_addr);
+            if NEXT_AVAILABLE_VIRTUAL_ADDRESS.is_none() {
+                NEXT_AVAILABLE_VIRTUAL_ADDRESS = Some(next_virt_page_addr.start());
+            }
+
+            // Loop repeats to re-check the space with the newly mapped page
         }
     }
 
     unsafe fn dealloc(&self, _ptr: *mut u8, _layout: Layout) {
-        // Do nothing for now
-        // @TODO: implement deallocation as well
+        // Bump allocator: deallocation is a no-op until we implement a proper heap.
     }
 }
