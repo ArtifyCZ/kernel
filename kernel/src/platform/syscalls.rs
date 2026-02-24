@@ -1,11 +1,12 @@
+use crate::interrupt_safe_spin_lock::InterruptSafeSpinLock;
 use crate::platform::drivers::serial::SerialDriver;
 use crate::platform::scheduler::Scheduler;
 use crate::platform::syscalls::bindings::syscall_frame;
+use crate::platform::tasks::{Task, TaskState};
 use crate::platform::terminal::Terminal;
+use alloc::format;
 use core::ffi::c_void;
 use core::ptr::{null_mut, slice_from_raw_parts};
-use crate::interrupt_safe_spin_lock::InterruptSafeSpinLock;
-use crate::platform::tasks::TaskState;
 
 mod bindings {
     include_bindings!("syscalls.rs");
@@ -57,20 +58,22 @@ macro_rules! wrap_syscall {
 
 wrap_syscall!(sys_exit, 0x00,);
 wrap_syscall!(sys_write, 0x01, fd: i32, user_buf: u64, count: usize);
+wrap_syscall!(sys_clone, 0x02, flags: u64, stack_pointer: usize, entrypoint: usize);
 
 impl Syscalls {
     pub unsafe fn init(scheduler: &'static InterruptSafeSpinLock<Scheduler>) {
         unsafe {
             SerialDriver::println("Initializing syscalls...");
-            bindings::syscalls_init(Some(Self::syscalls_dispatch), scheduler as *const _ as *mut _);
+            bindings::syscalls_init(
+                Some(Self::syscalls_dispatch),
+                scheduler as *const _ as *mut _,
+            );
             SerialDriver::println("Syscalls initialized!");
         }
     }
 
     pub unsafe fn invoke(args: syscall_args) -> u64 {
-        unsafe {
-            bindings::syscalls_raw(args)
-        }
+        unsafe { bindings::syscalls_raw(args) }
     }
 
     fn sys_exit(frame: &mut syscall_frame, scheduler: &InterruptSafeSpinLock<Scheduler>) -> u64 {
@@ -122,6 +125,35 @@ impl Syscalls {
         0
     }
 
+    fn sys_clone(
+        frame: &mut bindings::syscall_frame,
+        scheduler: &'static InterruptSafeSpinLock<Scheduler>,
+    ) -> u64 {
+        let mut scheduler = scheduler.lock();
+        let vmm = {
+            let current_task = scheduler
+                .get_current_task_mut()
+                .expect("The scheduler must have been started!");
+            current_task.get_virtual_memory_manager().clone()
+        };
+        // @TODO: implement flags
+        let _flags = frame.a[0];
+        let stack_pointer = frame.a[1] as usize;
+        let entrypoint = frame.a[2] as usize;
+        if stack_pointer >= 0x800000000000 || entrypoint >= 0x800000000000 {
+            return 1;
+        }
+        unsafe {
+            SerialDriver::println(&format!(
+                "stack ptr: {}; entrypoint ptr: {}",
+                stack_pointer, entrypoint
+            ));
+        }
+        let new_task = Task::new_user(vmm, stack_pointer, entrypoint);
+        scheduler.add(new_task);
+        0
+    }
+
     unsafe extern "C" fn syscalls_dispatch(
         frame: *mut bindings::syscall_frame,
         scheduler: *mut c_void,
@@ -131,6 +163,7 @@ impl Syscalls {
         match frame.num {
             0x00 => Self::sys_exit(frame, scheduler),
             0x01 => Self::sys_write(frame),
+            0x02 => Self::sys_clone(frame, scheduler),
             _ => panic!("Non-existent syscall triggered!"), // @TODO: add better handling
         }
     }

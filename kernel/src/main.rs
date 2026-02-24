@@ -116,7 +116,7 @@ fn main(hhdm_offset: u64, rsdp_address: u64) {
             let init_elf = Modules::find(init_elf_string.as_c_str()).unwrap();
             let mut init_ctx = VirtualMemoryManagerContext::create();
             let entrypoint_vaddr = Elf::load(&mut init_ctx, init_elf).unwrap();
-            let task = Task::new_user(Arc::new(init_ctx), entrypoint_vaddr);
+            let task = Task::new_user(Arc::new(init_ctx), 0x7FFFFFFFF000usize, entrypoint_vaddr);
             scheduler.lock().add(task);
         }
 

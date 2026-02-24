@@ -76,3 +76,4 @@ static inline uint64_t syscall_raw(struct syscall_args args) {
 
 __DEFN_SYSCALL0(sys_exit, 0x00)
 __DEFN_SYSCALL3(sys_write, 0x01, int, fd, const void*, buf, size_t, count)
+__DEFN_SYSCALL3(sys_clone, 0x02, unsigned long long, flags, const void*, stack_pointer, const void*, entrypoint)

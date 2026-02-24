@@ -33,14 +33,15 @@ pub struct Task {
 }
 
 impl Task {
-    pub fn new_user(user_ctx: Arc<VirtualMemoryManagerContext>, entrypoint_vaddr: usize) -> Self {
+    pub fn new_user(user_ctx: Arc<VirtualMemoryManagerContext>, user_stack_vaddr: usize, entrypoint_vaddr: usize) -> Self {
         let kernel_stack = unsafe {
             Pin::new_unchecked(Box::<[u8]>::new_zeroed_slice(TASK_KERNEL_STACK_SIZE).assume_init())
         };
+        // @TODO: move the user-stack allocation concern to the caller of this function
         let user_stack = unsafe {
             Pin::new_unchecked(Box::<[u8]>::new_zeroed_slice(4 * PAGE_FRAME_SIZE).assume_init())
         };
-        let user_stack_top_vaddr = 0x7FFFFFFFF000usize;
+        let user_stack_top_vaddr = user_stack_vaddr;
         for i in 0..4 {
             // allocate 4 pages as stack
             let page_vaddr = user_stack_top_vaddr - (i + 1) * PAGE_FRAME_SIZE;
@@ -101,6 +102,10 @@ impl Task {
             kernel_stack,
             state,
         }
+    }
+
+    pub fn get_virtual_memory_manager(&self) -> &Arc<VirtualMemoryManagerContext> {
+        self.user_ctx.as_ref().unwrap()
     }
 
     pub fn get_state(&self) -> TaskState {

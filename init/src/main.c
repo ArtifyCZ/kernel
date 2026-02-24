@@ -9,9 +9,7 @@ void print(const char *message) {
     sys_write(1, message, length);
 }
 
-void _start(void) {
-    const char message[] = "Hello world from user-space!\n";
-    print(message);
+void rest(void) {
     int j = 0;
 
     while (1) {
@@ -30,4 +28,17 @@ void _start(void) {
     print("THIS SHOULD NOT HAPPEN!\n");
     while (1) {
     }
+
+}
+
+void _start(void) {
+    const char message[] = "Hello world from user-space!\n";
+    print(message);
+
+    print("Trying to invoke clone syscall...\n");
+    // @TODO: add stack allocation
+    sys_clone(0, (void *) 0x7FFFFFFF8000, rest);
+    print("Parent is moving on...\n");
+
+    rest();
 }
