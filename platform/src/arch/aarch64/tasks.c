@@ -53,3 +53,7 @@ struct interrupt_frame *task_setup_kernel(
 void task_prepare_switch(uintptr_t kernel_stack_top) {
     // Do nothing
 }
+
+void task_set_syscall_return_value(struct interrupt_frame *frame, const uint64_t value) {
+    frame->x[0] = value;
+}

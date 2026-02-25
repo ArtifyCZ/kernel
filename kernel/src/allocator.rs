@@ -37,12 +37,12 @@ unsafe impl GlobalAlloc for Allocator {
         let layout = layout.pad_to_align();
         let _lock = HEAP_LOCK.lock();
 
-        let vmm_context = if let Some(ref mut vmm_context) = VMM_CONTEXT {
+        let vmm_context = if let Some(ref vmm_context) = VMM_CONTEXT {
             vmm_context
         } else {
             let vmm_context = VirtualMemoryManagerContext::get_kernel_context();
             VMM_CONTEXT = Some(vmm_context);
-            VMM_CONTEXT.as_mut().unwrap_unchecked()
+            VMM_CONTEXT.as_ref().unwrap()
         };
 
         loop {

@@ -65,6 +65,7 @@ macro_rules! wrap_syscall {
 wrap_syscall!(sys_exit, 0x00,);
 wrap_syscall!(sys_write, 0x01, fd: i32, user_buf: u64, count: usize);
 wrap_syscall!(sys_clone, 0x02, flags: u64, stack_pointer: usize, entrypoint: usize);
+wrap_syscall!(sys_mmap, 0x03, addr: usize, length: usize, flags: u64);
 
 impl Syscalls {
     pub unsafe fn init(scheduler: &'static InterruptSafeSpinLock<Scheduler>) {
@@ -192,6 +193,26 @@ impl Syscalls {
         }
     }
 
+    fn sys_mmap(frame: &mut syscall_frame, scheduler: &InterruptSafeSpinLock<Scheduler>) {
+        // let mut scheduler = scheduler.lock();
+
+        // let addr = frame.args[0] as usize;
+        // let length = frame.args[1] as usize;
+        // let flags = frame.args[2] as u64;
+
+        // let vmm = scheduler.get_current_task().unwrap().get_vmm();
+        // let vmm = vmm.as_ref();
+        // let vmm: &mut VirtualMemoryManagerContext = core::mem::transmute(vmm);
+        // vmm.map_page(
+        //     VirtualPageAddress::new(addr).unwrap(),
+        //     PhysicalPageAddress::new(0),
+        //     VirtualMemoryMappingFlags::PRESENT
+        //         | VirtualMemoryMappingFlags::USER
+        //         | VirtualMemoryMappingFlags::WRITE,
+        // )
+        // .unwrap();
+    }
+
     unsafe extern "C" fn syscalls_dispatch(
         frame: *mut bindings::syscall_frame,
         scheduler: *mut c_void,
@@ -202,6 +223,7 @@ impl Syscalls {
             0x00 => Self::sys_exit(frame, scheduler),
             0x01 => Self::sys_write(frame, scheduler),
             0x02 => Self::sys_clone(frame, scheduler),
+            0x03 => Self::sys_mmap(frame, scheduler),
             _ => panic!("Non-existent syscall triggered!"), // @TODO: add better handling
         };
     }

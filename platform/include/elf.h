@@ -54,6 +54,6 @@ typedef struct {
 
 void elf_init(uintptr_t hhdm_offset);
 
-int elf_load(struct vmm_context *ctx, void *data, uintptr_t *out_v_addr_entrypoint);
+int elf_load(const struct vmm_context *ctx, void *data, uintptr_t *out_v_addr_entrypoint);
 
 bool elf_arch_is_supported(Elf64_Half arch);

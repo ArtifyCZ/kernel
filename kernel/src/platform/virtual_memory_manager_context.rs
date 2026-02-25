@@ -51,14 +51,14 @@ impl VirtualMemoryManagerContext {
 
     /// @TODO: add better errors
     pub unsafe fn map_page(
-        &mut self,
+        &self,
         virtual_page_address: VirtualPageAddress,
         physical_address: PhysicalPageFrame,
         flags: VirtualMemoryMappingFlags,
     ) -> Result<(), ()> {
         if unsafe {
             bindings::vmm_map_page(
-                &raw mut self.context,
+                &self.context,
                 virtual_page_address.inner(),
                 physical_address.inner(),
                 flags.bits(),
@@ -71,11 +71,11 @@ impl VirtualMemoryManagerContext {
     }
 
     pub unsafe fn translate(
-        &mut self,
+        &self,
         virtual_page_address: VirtualPageAddress,
     ) -> Result<Option<PhysicalPageFrame>, PhysicalPageFrameParseError> {
         let physical_page_frame =
-            unsafe { bindings::vmm_translate(&raw mut self.context, virtual_page_address.inner()) };
+            unsafe { bindings::vmm_translate(&self.context, virtual_page_address.inner()) };
         if physical_page_frame == 0 {
             return Ok(None);
         }

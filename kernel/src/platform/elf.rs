@@ -13,9 +13,9 @@ impl Elf {
         }
     }
 
-    pub unsafe fn load(vmm_ctx: &mut VirtualMemoryManagerContext, data: &[u8]) -> Option<usize> {
+    pub unsafe fn load(vmm_ctx: &VirtualMemoryManagerContext, data: &[u8]) -> Option<usize> {
         unsafe {
-            let ctx = core::mem::transmute(&raw mut *vmm_ctx.inner_mut());
+            let ctx = core::mem::transmute(vmm_ctx.inner());
             let data = core::mem::transmute(data.as_ptr());
             let mut entrypoint_vaddr: usize = 0;
             bindings::elf_load(ctx, data, &raw mut entrypoint_vaddr);

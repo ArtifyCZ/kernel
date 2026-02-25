@@ -23,7 +23,7 @@ void elf_init(uintptr_t hhdm_offset) {
     g_hhdm_offset = hhdm_offset;
 }
 
-int elf_load(struct vmm_context *ctx, void *data, uintptr_t *out_v_addr_entrypoint) {
+int elf_load(const struct vmm_context *ctx, void *data, uintptr_t *out_v_addr_entrypoint) {
     if (g_hhdm_offset == 0x0) {
         return -1; // ELF hasn't been initialized!
     }

@@ -14,14 +14,14 @@ use crate::platform::physical_memory_manager::PhysicalMemoryManager;
 use crate::platform::virtual_memory_manager_context::VirtualMemoryMappingFlags;
 use crate::platform::virtual_page_address::VirtualPageAddress;
 
-fn load_init_into_memory(init_ctx: &mut VirtualMemoryManagerContext) -> usize {
+fn load_init_into_memory(init_ctx: &VirtualMemoryManagerContext) -> usize {
     let init_elf_string = CString::from_str("init.elf").expect("Failed to create CString");
     let init_elf = unsafe { Modules::find(init_elf_string.as_c_str()) }.unwrap();
     let entrypoint_vaddr = unsafe { Elf::load(init_ctx, init_elf) }.unwrap();
     entrypoint_vaddr
 }
 
-fn allocate_init_stack(init_ctx: &mut VirtualMemoryManagerContext) -> usize {
+fn allocate_init_stack(init_ctx: &VirtualMemoryManagerContext) -> usize {
     const INIT_STACK_TOP_VADDR: usize = 0x7FFFFFFFF000usize;
     for i in 0..4 {
         // allocate 4 pages as stack
@@ -46,8 +46,8 @@ fn allocate_init_stack(init_ctx: &mut VirtualMemoryManagerContext) -> usize {
 
 pub fn spawn_init_process(scheduler: &InterruptSafeSpinLock<Scheduler>) {
     let mut init_ctx = unsafe { VirtualMemoryManagerContext::create() };
-    let entrypoint_vaddr = load_init_into_memory(&mut init_ctx);
-    let stack_top_vaddr = allocate_init_stack(&mut init_ctx);
+    let entrypoint_vaddr = load_init_into_memory(&init_ctx);
+    let stack_top_vaddr = allocate_init_stack(&init_ctx);
 
     let task = Task::new_user(Arc::new(init_ctx), stack_top_vaddr, entrypoint_vaddr);
     scheduler.lock().add(task);

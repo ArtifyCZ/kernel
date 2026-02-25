@@ -69,7 +69,7 @@ void vmm_init(uint64_t hhdm_offset) {
     g_kernel_context.root = cr3 & X86_ADDR_MASK;
 }
 
-bool vmm_map_page(struct vmm_context *context, uintptr_t virt, uintptr_t phys, vmm_flags_t flags) {
+bool vmm_map_page(const struct vmm_context *context, uintptr_t virt, uintptr_t phys, vmm_flags_t flags) {
     static const int shifts[] = {39, 30, 21, 12};
     uint64_t* table = get_vaddr(context->root);
     uint64_t hw_flags = flags_to_x86(flags);
@@ -103,7 +103,7 @@ bool vmm_map_page(struct vmm_context *context, uintptr_t virt, uintptr_t phys, v
     return true;
 }
 
-bool vmm_unmap_page(struct vmm_context *context, uintptr_t virt) {
+bool vmm_unmap_page(const struct vmm_context *context, uintptr_t virt) {
     static const int shifts[] = {39, 30, 21, 12};
     uint64_t* table = get_vaddr(context->root);
 
@@ -118,7 +118,7 @@ bool vmm_unmap_page(struct vmm_context *context, uintptr_t virt) {
     return true;
 }
 
-uintptr_t vmm_translate(struct vmm_context *context, uintptr_t virt) {
+uintptr_t vmm_translate(const struct vmm_context *context, uintptr_t virt) {
     static const int shifts[] = {39, 30, 21, 12};
     uint64_t* table = get_vaddr(context->root);
 

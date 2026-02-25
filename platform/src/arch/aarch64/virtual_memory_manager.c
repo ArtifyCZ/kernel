@@ -75,7 +75,7 @@ struct vmm_context vmm_context_create(void) {
     return ctx;
 }
 
-bool vmm_map_page(struct vmm_context *context, uintptr_t virt, uintptr_t phys, vmm_flags_t flags) {
+bool vmm_map_page(const struct vmm_context *context, uintptr_t virt, uintptr_t phys, vmm_flags_t flags) {
     uint64_t* table = get_vaddr(context->root);
     static const int shifts[] = {L0_SHIFT, L1_SHIFT, L2_SHIFT};
 
@@ -107,7 +107,7 @@ bool vmm_map_page(struct vmm_context *context, uintptr_t virt, uintptr_t phys, v
 /**
  * Unmaps a virtual page and invalidates the TLB.
  */
-bool vmm_unmap_page(struct vmm_context *context, uintptr_t virt) {
+bool vmm_unmap_page(const struct vmm_context *context, uintptr_t virt) {
     uint64_t* table = get_vaddr(context->root);
     const static int shifts[] = {L0_SHIFT, L1_SHIFT, L2_SHIFT};
 
@@ -148,7 +148,7 @@ bool vmm_unmap_page(struct vmm_context *context, uintptr_t virt) {
 /**
  * Translates a virtual address to a physical address by walking the page tables.
  */
-uintptr_t vmm_translate(struct vmm_context *context, uintptr_t virt) {
+uintptr_t vmm_translate(const struct vmm_context *context, uintptr_t virt) {
     uint64_t* table = get_vaddr(context->root);
     const static int shifts[] = {L0_SHIFT, L1_SHIFT, L2_SHIFT, L3_SHIFT};
 

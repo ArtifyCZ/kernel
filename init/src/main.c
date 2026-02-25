@@ -25,13 +25,21 @@ void rest(void) {
     }
 }
 
+__attribute__ ((noreturn)) void second_thread(void) {
+    print("Hello from second thread!\n");
+    rest();
+    sys_exit();
+    print("THIS SHOULD NOT HAPPEN!");
+    while (1) {}
+}
+
 int main(void) {
     const char message[] = "Hello world from user-space!\n";
     print(message);
 
     print("Trying to invoke clone syscall...\n");
     // @TODO: add stack allocation
-    sys_clone(0, (void *) 0x7FFFFFFF8000, rest);
+    sys_clone(0, (void *) 0x7FFFFFFF8000, second_thread);
     print("Parent is moving on...\n");
 
     rest();
