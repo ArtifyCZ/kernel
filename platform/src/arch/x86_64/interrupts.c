@@ -47,12 +47,7 @@ void interrupts_init(void) {
             idt[i].ist = 0; // No specific stack switching
         }
         uint8_t attributes;
-        if (i == SYSCALL_INTERRUPT_NUMBER) {
-            // Allow to be manually triggerred from ring 3
-            attributes = 0xEE;
-        } else {
-            attributes = 0x8E; // Present, Ring 0, Interrupt Gate
-        }
+        attributes = 0x8E; // Present, Ring 0, Interrupt Gate
         idt[i].attributes = attributes;
         idt[i].isr_mid = (uint16_t) ((isr >> 16) & 0xFFFF);
         idt[i].isr_high = (uint32_t) ((isr >> 32) & 0xFFFFFFFF);

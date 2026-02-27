@@ -5,10 +5,6 @@
 #include "boot.h"
 #include "cpu_interrupts.h"
 
-#define SYSCALL_INTERRUPT_VECTOR 0x80
-
-bool syscalls_interrupt_handler(struct interrupt_frame **frame, void *args);
-
 struct interrupt_frame *syscalls_inner_handler(struct interrupt_frame *frame);
 
 static syscall_handler_t g_syscall_handler = NULL;
@@ -17,7 +13,6 @@ static void *g_syscall_handler_arg = NULL;
 void syscalls_init(syscall_handler_t syscall_handler, void *syscall_handler_arg) {
     g_syscall_handler = syscall_handler;
     g_syscall_handler_arg = syscall_handler_arg;
-    interrupts_register_handler(SYSCALL_INTERRUPT_VECTOR, syscalls_interrupt_handler, NULL);
 }
 
 struct interrupt_frame *syscalls_inner_handler(struct interrupt_frame *frame) {
@@ -31,26 +26,6 @@ struct interrupt_frame *syscalls_inner_handler(struct interrupt_frame *frame) {
 
     // Return the (potentially updated) frame pointer
     return frame;
-}
-
-bool syscalls_interrupt_handler(struct interrupt_frame **frame, void *args) {
-    (void) args;
-
-    struct syscall_frame syscall_frame = {
-        .interrupt_frame = frame,
-        .num = (*frame)->rax,
-        .a = {
-            (*frame)->rdi,
-            (*frame)->rsi,
-            (*frame)->rdx,
-            (*frame)->r10,
-            (*frame)->r8,
-        },
-    };
-
-    g_syscall_handler(&syscall_frame, g_syscall_handler_arg);
-
-    return true;
 }
 
 uint64_t syscalls_raw(struct syscall_args args) {

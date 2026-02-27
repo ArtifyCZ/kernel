@@ -4,8 +4,6 @@
 
 #include "interrupts.h"
 
-#define SYSCALL_INTERRUPT_NUMBER 0x80
-
 struct interrupt_frame {
     // Pushed LAST in NASM (lowest address)
     uint64_t cr3;

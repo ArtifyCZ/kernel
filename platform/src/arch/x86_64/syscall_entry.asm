@@ -40,7 +40,7 @@ syscalls_raw_handler:
 .continue_entry:
     push rcx            ; RIP
     push 0              ; Error code
-    push 0x80           ; Interrupt vector
+    push 0x80           ; Dummy interrupt vector
 
     push rax
     push rbx
