@@ -90,11 +90,10 @@ impl Syscalls {
         let next_task_state = scheduler
             .exit_current_task(
                 |prev_task| {
-                    prev_task.set_state(prev_task_state);
+                    prev_task.set_frame(prev_task_state);
                 },
                 |next_task| {
-                    next_task.prepare_switch();
-                    next_task.get_state()
+                    next_task.prepare_switch()
                 },
             )
             .unwrap();

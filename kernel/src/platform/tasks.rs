@@ -100,11 +100,7 @@ impl TaskContext {
         self.user_ctx.as_ref().unwrap()
     }
 
-    pub fn get_state(&self) -> TaskFrame {
-        self.state
-    }
-
-    pub fn set_state(&mut self, state: TaskFrame) {
+    pub fn set_frame(&mut self, state: TaskFrame) {
         self.state = state;
     }
 
@@ -114,10 +110,12 @@ impl TaskContext {
         }
     }
 
-    pub fn prepare_switch(&self) {
+    #[must_use]
+    pub fn prepare_switch(&self) -> TaskFrame {
+        let kernel_stack_top = self.kernel_stack.as_ptr_range().end as usize;
         unsafe {
-            let kernel_stack_top = self.kernel_stack.as_ptr_range().end as usize;
             bindings::task_prepare_switch(kernel_stack_top);
         }
+        self.state
     }
 }

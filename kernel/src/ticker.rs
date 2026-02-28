@@ -23,11 +23,10 @@ impl Ticker {
             .scheduler
             .heartbeat(
                 |prev_task| {
-                    prev_task.set_state(prev_frame);
+                    prev_task.set_frame(prev_frame);
                 },
                 |next_task| {
-                    next_task.prepare_switch();
-                    next_task.get_state()
+                    next_task.prepare_switch()
                 },
             )
             .unwrap_or(prev_frame);
