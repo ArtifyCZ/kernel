@@ -18,19 +18,19 @@ pub const TASK_KERNEL_STACK_SIZE: usize = 4 * PAGE_FRAME_SIZE;
 
 #[derive(Debug, Copy, Clone)]
 #[repr(transparent)]
-pub struct TaskState(pub(super) *mut bindings::interrupt_frame);
+pub struct TaskFrame(pub(super) *mut bindings::interrupt_frame);
 
-unsafe impl Send for TaskState {}
+unsafe impl Send for TaskFrame {}
 
 #[derive(Debug)]
-pub struct Task {
+pub struct TaskContext {
     #[allow(unused)]
     user_ctx: Option<Arc<VirtualMemoryManagerContext>>,
     kernel_stack: Pin<Box<[u8]>>,
-    state: TaskState,
+    state: TaskFrame,
 }
 
-impl Task {
+impl TaskContext {
     pub fn new_user(user_ctx: Arc<VirtualMemoryManagerContext>, user_stack_vaddr: usize, entrypoint_vaddr: usize) -> Self {
         let kernel_stack = unsafe {
             Pin::new_unchecked(Box::<[u8]>::new_zeroed_slice(TASK_KERNEL_STACK_SIZE).assume_init())
@@ -39,7 +39,7 @@ impl Task {
         let state = unsafe {
             let user_ctx_ptr: *const vmm_context = core::mem::transmute(user_ctx.inner());
             let kernel_stack_top = kernel_stack.as_ptr_range().end as usize;
-            TaskState(bindings::task_setup_user(
+            TaskFrame(bindings::task_setup_user(
                 user_ctx_ptr,
                 entrypoint_vaddr,
                 user_stack_vaddr,
@@ -65,7 +65,7 @@ impl Task {
 
         let state = unsafe {
             let kernel_stack_top = kernel_stack.as_ptr_range().end as usize;
-            TaskState(bindings::task_setup_kernel(kernel_stack_top, Some(function), arg))
+            TaskFrame(bindings::task_setup_kernel(kernel_stack_top, Some(function), arg))
         };
 
         Self {
@@ -79,11 +79,11 @@ impl Task {
         self.user_ctx.as_ref().unwrap()
     }
 
-    pub fn get_state(&self) -> TaskState {
+    pub fn get_state(&self) -> TaskFrame {
         self.state
     }
 
-    pub fn set_state(&mut self, state: TaskState) {
+    pub fn set_state(&mut self, state: TaskFrame) {
         self.state = state;
     }
 

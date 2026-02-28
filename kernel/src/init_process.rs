@@ -5,7 +5,7 @@ use alloc::{ffi::CString, sync::Arc};
 use crate::{
     interrupt_safe_spin_lock::InterruptSafeSpinLock,
     platform::{
-        elf::Elf, modules::Modules, scheduler::Scheduler, tasks::Task,
+        elf::Elf, modules::Modules, scheduler::Scheduler, tasks::TaskContext,
         virtual_memory_manager_context::VirtualMemoryManagerContext,
     },
 };
@@ -49,6 +49,6 @@ pub fn spawn_init_process(scheduler: &InterruptSafeSpinLock<Scheduler>) {
     let entrypoint_vaddr = load_init_into_memory(&init_ctx);
     let stack_top_vaddr = allocate_init_stack(&init_ctx);
 
-    let task = Task::new_user(Arc::new(init_ctx), stack_top_vaddr, entrypoint_vaddr);
+    let task = TaskContext::new_user(Arc::new(init_ctx), stack_top_vaddr, entrypoint_vaddr);
     scheduler.lock().add(task);
 }

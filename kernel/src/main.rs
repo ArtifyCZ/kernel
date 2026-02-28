@@ -43,7 +43,7 @@ use crate::platform::interrupts::Interrupts;
 use crate::platform::memory_layout::PAGE_FRAME_SIZE;
 use crate::platform::scheduler::Scheduler;
 use crate::platform::syscalls::Syscalls;
-use crate::platform::tasks::Task;
+use crate::platform::tasks::TaskContext;
 use crate::platform::terminal::Terminal;
 use crate::platform::ticker::Ticker;
 use crate::platform::timer::Timer;
@@ -87,7 +87,7 @@ where
 
     let arg = Box::into_raw(Box::new(f)).cast();
 
-    let task = Task::new_kernel(trampoline::<F>, arg, 4 * PAGE_FRAME_SIZE);
+    let task = TaskContext::new_kernel(trampoline::<F>, arg, 4 * PAGE_FRAME_SIZE);
     scheduler.add(task);
 }
 

@@ -1,6 +1,6 @@
 use crate::interrupt_safe_spin_lock::{InterruptSafeSpinLock, InterruptSafeSpinLockGuard};
 use crate::platform::drivers::serial::SerialDriver;
-use crate::platform::tasks::{Task, TaskState};
+use crate::platform::tasks::{TaskContext, TaskFrame};
 use alloc::boxed::Box;
 use alloc::vec::Vec;
 
@@ -8,7 +8,7 @@ use alloc::vec::Vec;
 pub struct Scheduler {
     current_task: i32,
     started: bool,
-    tasks: Vec<Task>,
+    tasks: Vec<TaskContext>,
 }
 
 impl Default for Scheduler {
@@ -35,7 +35,7 @@ impl Scheduler {
         self.started = true;
     }
 
-    fn find_next_runnable_task(&mut self) -> Option<(usize, &mut Task)> {
+    fn find_next_runnable_task(&mut self) -> Option<(usize, &mut TaskContext)> {
         for offset in 1..=self.tasks.len() {
             let idx = if self.current_task < 0 {
                 offset - 1
@@ -48,7 +48,7 @@ impl Scheduler {
         None
     }
 
-    pub fn add(&mut self, task: Task) {
+    pub fn add(&mut self, task: TaskContext) {
         self.tasks.push(task);
     }
 
@@ -66,7 +66,7 @@ impl Scheduler {
         }
     }
 
-    pub fn get_current_task_mut(&mut self) -> Option<&mut Task> {
+    pub fn get_current_task_mut(&mut self) -> Option<&mut TaskContext> {
         if self.current_task < 0 {
             None
         } else {
@@ -74,7 +74,7 @@ impl Scheduler {
         }
     }
 
-    pub fn pick_next(&mut self) -> Option<&mut Task> {
+    pub fn pick_next(&mut self) -> Option<&mut TaskContext> {
         if !self.started {
             return None;
         }

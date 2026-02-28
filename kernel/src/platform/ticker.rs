@@ -6,7 +6,7 @@ use core::ptr::null_mut;
 use crate::interrupt_safe_spin_lock::InterruptSafeSpinLock;
 use crate::platform::drivers::serial::SerialDriver;
 use crate::platform::scheduler::Scheduler;
-use crate::platform::tasks::TaskState;
+use crate::platform::tasks::TaskFrame;
 
 pub struct Ticker;
 
@@ -25,9 +25,9 @@ impl Ticker {
             let scheduler: &'static InterruptSafeSpinLock<Scheduler> = &*scheduler.cast();
 
             let prev_frame: *mut super::timer::bindings::interrupt_frame = frame.read();
-            let prev_state = TaskState(prev_frame.cast());
+            let prev_state = TaskFrame(prev_frame.cast());
             let _ = scheduler.lock().get_current_task_mut().map(|prev_task| prev_task.set_state(prev_state));
-            let next_state: TaskState = if let Some(next_task) = scheduler.lock().pick_next() {
+            let next_state: TaskFrame = if let Some(next_task) = scheduler.lock().pick_next() {
                 next_task.prepare_switch();
                 next_task.get_state()
             } else {

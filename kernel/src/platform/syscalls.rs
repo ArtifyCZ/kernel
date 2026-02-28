@@ -2,7 +2,7 @@ use crate::interrupt_safe_spin_lock::InterruptSafeSpinLock;
 use crate::platform::drivers::serial::SerialDriver;
 use crate::platform::scheduler::Scheduler;
 use crate::platform::syscalls::bindings::syscall_frame;
-use crate::platform::tasks::{Task, TaskState};
+use crate::platform::tasks::{TaskContext, TaskFrame};
 use crate::platform::terminal::Terminal;
 use alloc::format;
 use core::ffi::c_void;
@@ -89,7 +89,7 @@ impl Syscalls {
             let prev_task_interrupt_frame = (*frame.interrupt_frame).cast();
             let mut scheduler = scheduler.lock();
 
-            let prev_task_state = TaskState(prev_task_interrupt_frame);
+            let prev_task_state = TaskFrame(prev_task_interrupt_frame);
             if let Some(prev_task) = scheduler.get_current_task_mut() {
                 prev_task.set_state(prev_task_state);
             }
@@ -161,7 +161,7 @@ impl Syscalls {
             }
             return;
         }
-        let new_task = Task::new_user(vmm, stack_pointer, entrypoint);
+        let new_task = TaskContext::new_user(vmm, stack_pointer, entrypoint);
         scheduler.add(new_task);
         unsafe {
             scheduler
