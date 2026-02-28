@@ -11,6 +11,7 @@ mod platform;
 mod scheduler;
 mod spin_lock;
 mod task_id;
+mod task_registry;
 mod ticker;
 
 use crate::init_process::spawn_init_process;
@@ -19,8 +20,6 @@ use crate::platform::platform::Platform;
 use alloc::boxed::Box;
 use alloc::string::ToString;
 use core::ffi::c_void;
-use core::ops::DerefMut;
-use core::str::FromStr;
 
 #[panic_handler]
 #[cfg(not(test))]
@@ -48,6 +47,8 @@ use crate::platform::terminal::Terminal;
 use crate::platform::timer::Timer;
 use scheduler::Scheduler;
 use ticker::Ticker;
+use crate::task_registry::TaskRegistry;
+
 fn thread_heartbeat() {
     let mut i = 0;
     loop {
@@ -96,8 +97,9 @@ fn main(hhdm_offset: u64, rsdp_address: u64) {
         Platform::init(rsdp_address);
 
         SerialDriver::println("Hello from Rust!");
+        let registry = TaskRegistry::new();
 
-        let scheduler = Scheduler::init();
+        let scheduler = Scheduler::init(registry);
 
         Syscalls::init(scheduler);
         Elf::init(hhdm_offset);

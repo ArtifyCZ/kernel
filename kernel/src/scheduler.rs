@@ -2,8 +2,10 @@ use crate::interrupt_safe_spin_lock::InterruptSafeSpinLock;
 use crate::platform::drivers::serial::SerialDriver;
 use crate::platform::tasks::{TaskContext, TaskFrame};
 use crate::task_id::TaskId;
+use crate::task_registry::{TaskGuard, TaskRegistry};
 use alloc::boxed::Box;
-use alloc::collections::{BTreeMap, VecDeque};
+use alloc::collections::VecDeque;
+use core::ops::{Deref, DerefMut};
 
 #[derive(Default)]
 pub struct Scheduler(InterruptSafeSpinLock<SchedulerInner>);
@@ -13,7 +15,7 @@ struct SchedulerInner {
     current_task: Option<TaskId>,
     null_task: TaskId,
     started: bool,
-    tasks: BTreeMap<TaskId, TaskContext>,
+    tasks: &'static TaskRegistry,
     ready_tasks: VecDeque<TaskId>,
 }
 
@@ -21,7 +23,7 @@ impl Default for SchedulerInner {
     fn default() -> Self {
         let null_task_id = TaskId::new();
         let null_task = TaskContext::new_kernel_null();
-        let mut tasks = BTreeMap::new();
+        let tasks = TaskRegistry::new();
         tasks.insert(null_task_id, null_task);
         let mut ready_tasks = VecDeque::new();
         ready_tasks.push_back(null_task_id);
@@ -36,15 +38,15 @@ impl Default for SchedulerInner {
 }
 
 impl SchedulerInner {
-    fn pick_next_task(&mut self) -> Option<&mut TaskContext> {
+    fn pick_next_task(&mut self) -> Option<TaskGuard<'_>> {
         if !self.started {
             return None;
         }
 
         while let Some(task_id) = self.ready_tasks.pop_front() {
-            if self.tasks.contains_key(&task_id) {
+            if let Some(task) = self.tasks.get(task_id) {
                 self.current_task = Some(task_id);
-                return Some(self.tasks.get_mut(&task_id).unwrap());
+                return Some(task);
             }
         }
 
@@ -53,10 +55,23 @@ impl SchedulerInner {
 }
 
 impl Scheduler {
-    pub fn init() -> &'static Self {
+    pub fn init(task_registry: &'static TaskRegistry) -> &'static Self {
         unsafe {
             SerialDriver::println("Initializing scheduler...");
-            let scheduler: &'static Self = Box::leak(Box::new(Default::default()));
+            let null_task_id = TaskId::new();
+            let null_task = TaskContext::new_kernel_null();
+            task_registry.insert(null_task_id, null_task);
+            let mut ready_tasks = VecDeque::new();
+            ready_tasks.push_back(null_task_id);
+            let scheduler: &'static Self = Box::leak(Box::new(Scheduler(
+                InterruptSafeSpinLock::new(SchedulerInner {
+                    started: false,
+                    current_task: None,
+                    null_task: null_task_id,
+                    tasks: task_registry,
+                    ready_tasks,
+                }),
+            )));
             SerialDriver::println("Scheduler initialized!");
             scheduler
         }
@@ -83,8 +98,8 @@ impl Scheduler {
             Some(task_id) => task_id,
             None => return,
         };
-        let task = inner.tasks.get_mut(&task_id).unwrap();
-        f(task);
+        let mut task = inner.tasks.get(task_id).unwrap();
+        f(task.deref_mut());
     }
 
     pub fn access_current_task_context<TOut>(
@@ -96,7 +111,8 @@ impl Scheduler {
             return None;
         }
         let task_id = inner.current_task?;
-        Some(f(&inner.tasks[&task_id]))
+        let task = inner.tasks.get(task_id).unwrap();
+        Some(f(task.deref()))
     }
 
     pub fn heartbeat(&self, prev_frame: TaskFrame) -> Option<TaskFrame> {
@@ -106,7 +122,7 @@ impl Scheduler {
         }
 
         if let Some(prev_idx) = inner.current_task {
-            let prev_task = inner.tasks.get_mut(&prev_idx).unwrap();
+            let mut prev_task = inner.tasks.get(prev_idx).unwrap();
             prev_task.set_frame(prev_frame);
             inner.ready_tasks.push_back(prev_idx);
         }
@@ -122,9 +138,16 @@ impl Scheduler {
         }
 
         if let Some(prev_id) = inner.current_task {
-            let prev_task = inner.tasks.get_mut(&prev_id).unwrap();
+            let mut prev_task = inner.tasks.get(prev_id).unwrap();
             prev_task.set_frame(prev_frame);
-            inner.tasks.remove(&prev_id);
+            if let Some((idx, _)) = inner
+                .ready_tasks
+                .iter()
+                .enumerate()
+                .find(|(_, task_id)| **task_id == prev_id)
+            {
+                inner.ready_tasks.remove(idx);
+            }
         }
 
         let next_task = inner.pick_next_task()?;
