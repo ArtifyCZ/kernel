@@ -10,6 +10,7 @@ mod interrupt_safe_spin_lock;
 mod platform;
 mod scheduler;
 mod spin_lock;
+mod task_id;
 mod ticker;
 
 use crate::init_process::spawn_init_process;
