@@ -21,14 +21,7 @@ impl Ticker {
     fn tick_handler(&self, prev_frame: TaskFrame) -> TaskFrame {
         let next_frame: TaskFrame = self
             .scheduler
-            .heartbeat(
-                |prev_task| {
-                    prev_task.set_frame(prev_frame);
-                },
-                |next_task| {
-                    next_task.prepare_switch()
-                },
-            )
+            .heartbeat(prev_frame)
             .unwrap_or(prev_frame);
         let ticks = Timer::get_ticks();
         if ticks % 100 == 0 {

@@ -99,11 +99,7 @@ impl Scheduler {
         Some(f(&inner.tasks[&task_id]))
     }
 
-    pub fn heartbeat<FPrev, FNext, TOut>(&self, f_prev: FPrev, f_next: FNext) -> Option<TOut>
-    where
-        FPrev: FnOnce(&mut TaskContext),
-        FNext: FnOnce(&mut TaskContext) -> TOut,
-    {
+    pub fn heartbeat(&self, prev_frame: TaskFrame) -> Option<TaskFrame> {
         let mut inner = self.0.lock();
         if !inner.started {
             return None;
@@ -111,14 +107,12 @@ impl Scheduler {
 
         if let Some(prev_idx) = inner.current_task {
             let prev_task = inner.tasks.get_mut(&prev_idx).unwrap();
-            f_prev(prev_task);
+            prev_task.set_frame(prev_frame);
             inner.ready_tasks.push_back(prev_idx);
         }
 
         let next_task = inner.pick_next_task()?;
-        let result = f_next(next_task);
-
-        Some(result)
+        Some(next_task.prepare_switch())
     }
 
     pub fn exit_current_task(&self, prev_frame: TaskFrame) -> Option<TaskFrame> {
