@@ -1,6 +1,6 @@
 use crate::interrupt_safe_spin_lock::InterruptSafeSpinLock;
 use crate::platform::drivers::serial::SerialDriver;
-use crate::platform::tasks::TaskContext;
+use crate::platform::tasks::{TaskContext, TaskFrame};
 use crate::task_id::TaskId;
 use alloc::boxed::Box;
 use alloc::collections::{BTreeMap, VecDeque};
@@ -121,15 +121,7 @@ impl Scheduler {
         Some(result)
     }
 
-    pub fn exit_current_task<FPrev, FNext, TOut>(
-        &self,
-        f_prev: FPrev,
-        f_next: FNext,
-    ) -> Option<TOut>
-    where
-        FPrev: FnOnce(&mut TaskContext),
-        FNext: FnOnce(&mut TaskContext) -> TOut,
-    {
+    pub fn exit_current_task(&self, prev_frame: TaskFrame) -> Option<TaskFrame> {
         let mut inner = self.0.lock();
         if !inner.started {
             return None;
@@ -137,13 +129,11 @@ impl Scheduler {
 
         if let Some(prev_id) = inner.current_task {
             let prev_task = inner.tasks.get_mut(&prev_id).unwrap();
-            f_prev(prev_task);
+            prev_task.set_frame(prev_frame);
             inner.tasks.remove(&prev_id);
         }
 
         let next_task = inner.pick_next_task()?;
-        let result = f_next(next_task);
-
-        Some(result)
+        Some(next_task.prepare_switch())
     }
 }

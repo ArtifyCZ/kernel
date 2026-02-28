@@ -88,14 +88,7 @@ impl Syscalls {
 
         let prev_task_state = TaskFrame(prev_task_interrupt_frame);
         let next_task_state = scheduler
-            .exit_current_task(
-                |prev_task| {
-                    prev_task.set_frame(prev_task_state);
-                },
-                |next_task| {
-                    next_task.prepare_switch()
-                },
-            )
+            .exit_current_task(prev_task_state)
             .unwrap();
 
         unsafe {
