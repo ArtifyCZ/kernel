@@ -114,14 +114,7 @@ fn main(hhdm_offset: u64, rsdp_address: u64) {
 
         loop {
             platform::syscalls::sys_exit();
-            hcf();
-            // Now just wait for the first interrupt
-            // @TODO: use yield or exit syscall
-            #[cfg(target_arch = "x86_64")]
-            core::arch::asm!("hlt", options(nomem, nostack, preserves_flags));
-
-            #[cfg(target_arch = "aarch64")]
-            core::arch::asm!("wfi", options(nomem, nostack, preserves_flags));
+            hcf()
         }
     }
 }
