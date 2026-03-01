@@ -1,7 +1,7 @@
 use crate::platform::drivers::serial::SerialDriver;
 use crate::platform::memory_layout::PAGE_FRAME_SIZE;
 use crate::platform::physical_memory_manager::PhysicalMemoryManager;
-use crate::platform::syscalls::SyscallContext;
+use crate::platform::syscalls::{syscall_num, SyscallContext};
 use crate::platform::terminal::Terminal;
 use crate::platform::virtual_memory_manager_context::VirtualMemoryMappingFlags;
 use crate::platform::virtual_page_address::VirtualPageAddress;
@@ -23,10 +23,10 @@ impl SyscallHandler {
 
     pub fn handle(&self, ctx: &mut SyscallContext<'_>) {
         match ctx.num {
-            0x00 => self.sys_exit(ctx),
-            0x01 => self.sys_write(ctx),
-            0x02 => self.sys_clone(ctx),
-            0x03 => self.sys_mmap(ctx),
+            syscall_num::SYS_EXIT => self.sys_exit(ctx),
+            syscall_num::SYS_WRITE => self.sys_write(ctx),
+            syscall_num::SYS_CLONE => self.sys_clone(ctx),
+            syscall_num::SYS_MMAP => self.sys_mmap(ctx),
             _ => panic!("Non-existent syscall triggered!"), // @TODO: add better handling
         }
     }

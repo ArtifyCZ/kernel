@@ -8,7 +8,12 @@ mod bindings {
     include_bindings!("syscalls.rs");
 }
 
+mod syscall_nums {
+    include_bindings!("syscall_nums.rs");
+}
+
 pub use bindings::syscall_args;
+pub use syscall_nums::syscall_num;
 
 pub struct Syscalls;
 
@@ -52,10 +57,10 @@ macro_rules! wrap_syscall {
     };
 }
 
-wrap_syscall!(sys_exit, 0x00,);
-wrap_syscall!(sys_write, 0x01, fd: i32, user_buf: u64, count: usize);
-wrap_syscall!(sys_clone, 0x02, flags: u64, stack_pointer: usize, entrypoint: usize);
-wrap_syscall!(sys_mmap, 0x03, addr: usize, length: usize, prot: u32, flags: u32);
+wrap_syscall!(sys_exit, syscall_num::SYS_EXIT);
+wrap_syscall!(sys_write, syscall_num::SYS_WRITE, fd: i32, user_buf: u64, count: usize);
+wrap_syscall!(sys_clone, syscall_num::SYS_CLONE, flags: u64, stack_pointer: usize, entrypoint: usize);
+wrap_syscall!(sys_mmap, syscall_num::SYS_MMAP, addr: usize, length: usize, prot: u32, flags: u32);
 
 pub struct SyscallContext<'a> {
     pub task_frame: &'a mut TaskFrame,
