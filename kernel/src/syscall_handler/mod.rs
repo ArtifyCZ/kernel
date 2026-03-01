@@ -1,3 +1,5 @@
+mod sys_exit;
+
 use crate::platform::drivers::serial::SerialDriver;
 use crate::platform::memory_layout::PAGE_FRAME_SIZE;
 use crate::platform::physical_memory_manager::PhysicalMemoryManager;
@@ -10,9 +12,18 @@ use crate::task_registry::TaskSpec;
 use alloc::boxed::Box;
 use alloc::format;
 use core::ptr::slice_from_raw_parts;
+use crate::syscall_handler::sys_exit::SysExitCommand;
 
 pub struct SyscallHandler {
     scheduler: &'static Scheduler,
+}
+
+pub trait SyscallCommand {
+    fn parse<'a>(ctx: &SyscallContext<'a>) -> Self where Self: 'a;
+}
+
+pub trait SyscallCommandHandler<TSyscallCommand> {
+    fn handle_command(&self, command: TSyscallCommand) -> SyscallIntent;
 }
 
 impl SyscallHandler {
@@ -23,22 +34,12 @@ impl SyscallHandler {
 
     pub fn handle(&self, ctx: &SyscallContext<'_>) -> SyscallIntent {
         match ctx.num {
-            syscall_num::SYS_EXIT => self.sys_exit(ctx),
+            syscall_num::SYS_EXIT => self.handle_command(SysExitCommand::parse(ctx)),
             syscall_num::SYS_WRITE => self.sys_write(ctx),
             syscall_num::SYS_CLONE => self.sys_clone(ctx),
             syscall_num::SYS_MMAP => self.sys_mmap(ctx),
             _ => panic!("Non-existent syscall triggered!"), // @TODO: add better handling
         }
-    }
-
-    fn sys_exit(&self, ctx: &SyscallContext<'_>) -> SyscallIntent {
-        unsafe {
-            SerialDriver::println("=== EXIT SYSCALL ===");
-        }
-        let prev_task_state = ctx.task_frame.clone();
-        let next_task_state = self.scheduler.exit_current_task(prev_task_state).unwrap();
-
-        SyscallIntent::SwitchTo(next_task_state)
     }
 
     fn sys_write(&self, ctx: &SyscallContext<'_>) -> SyscallIntent {
