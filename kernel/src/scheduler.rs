@@ -128,7 +128,7 @@ impl Scheduler {
         }
 
         let next_task = inner.pick_next_task()?;
-        Some(next_task.prepare_switch())
+        Some(next_task.activate())
     }
 
     pub fn exit_current_task(&self, prev_frame: TaskFrame) -> Option<TaskFrame> {
@@ -151,6 +151,6 @@ impl Scheduler {
         }
 
         let next_task = inner.pick_next_task()?;
-        Some(next_task.prepare_switch())
+        Some(next_task.activate())
     }
 }

@@ -111,7 +111,7 @@ impl TaskContext {
     }
 
     #[must_use]
-    pub fn prepare_switch(&self) -> TaskFrame {
+    pub fn activate(&self) -> TaskFrame {
         let kernel_stack_top = self.kernel_stack.as_ptr_range().end as usize;
         unsafe {
             bindings::task_prepare_switch(kernel_stack_top);
