@@ -6,6 +6,7 @@ fn main() {
     let target = env::var("TARGET").unwrap();
 
     let headers = [
+        ("../include/syscall_errs.h", "syscall_errs.rs"),
         ("../include/syscall_nums.h", "syscall_nums.rs"),
         ("../platform/include/drivers/keyboard.h", "drivers/keyboard.rs"),
         ("../platform/include/drivers/serial.h", "drivers/serial.rs"),
@@ -44,6 +45,7 @@ fn main() {
             .clang_arg("-fdata-sections")
             .clang_arg("-I./../dependencies/freestnd-c-hdrs/include")
             .clang_arg("-I./../dependencies/limine-protocol/include")
+            .rustified_enum("syscall_err")
             .constified_enum_module("syscall_num")
             .generate()
             // Unwrap the Result and panic on failure.

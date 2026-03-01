@@ -1,4 +1,5 @@
 use core::sync::atomic::AtomicU64;
+use crate::platform::syscalls::{SyscallReturnValue, SyscallReturnable};
 
 /// Each task has a unique ID.
 ///
@@ -16,6 +17,12 @@ impl TaskId {
 
     pub fn get(&self) -> u64 {
         self.0
+    }
+}
+
+impl SyscallReturnable for TaskId {
+    fn into_return_value(self) -> SyscallReturnValue {
+        SyscallReturnValue(self.get())
     }
 }
 

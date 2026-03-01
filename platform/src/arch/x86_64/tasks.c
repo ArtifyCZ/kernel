@@ -59,6 +59,7 @@ void task_prepare_switch(const uintptr_t kernel_stack_top) {
     msr_set_kernel_stack(kernel_stack_top);
 }
 
-void task_set_syscall_return_value(struct interrupt_frame *frame, const uint64_t value) {
+void task_set_syscall_return_value(struct interrupt_frame *frame, const uint64_t error_code, const uint64_t value) {
     frame->rax = value;
+    frame->rdx = error_code;
 }

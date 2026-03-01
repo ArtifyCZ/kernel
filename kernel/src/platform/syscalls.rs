@@ -8,11 +8,16 @@ mod bindings {
     include_bindings!("syscalls.rs");
 }
 
+mod syscall_errs {
+    include_bindings!("syscall_errs.rs");
+}
+
 mod syscall_nums {
     include_bindings!("syscall_nums.rs");
 }
 
 pub use bindings::syscall_args;
+pub use syscall_errs::syscall_err as SyscallError;
 pub use syscall_nums::syscall_num;
 
 pub struct Syscalls;
@@ -68,21 +73,42 @@ pub struct SyscallContext<'a> {
     pub num: u64,
 }
 
-pub enum SyscallIntent {
+pub enum SyscallIntent<TOut> {
     /// Returns to the caller
-    Return(u64),
+    Return(TOut),
     /// Switches to the specified task
     SwitchTo(TaskFrame),
+}
+
+impl<T> From<SyscallIntent<T>> for SyscallIntent<SyscallReturnValue> where T: SyscallReturnable {
+    fn from(value: SyscallIntent<T>) -> SyscallIntent<SyscallReturnValue> {
+        match value {
+            SyscallIntent::Return(value) => SyscallIntent::Return(value.into_return_value()),
+            SyscallIntent::SwitchTo(frame) => SyscallIntent::SwitchTo(frame),
+        }
+    }
+}
+
+pub struct SyscallReturnValue(pub u64);
+
+pub trait SyscallReturnable {
+    fn into_return_value(self) -> SyscallReturnValue;
+}
+
+impl SyscallReturnable for () {
+    fn into_return_value(self) -> SyscallReturnValue {
+        SyscallReturnValue(0)
+    }
 }
 
 impl Syscalls {
     pub unsafe fn init<F>(f: F)
     where
-        F: (FnMut(&SyscallContext<'_>) -> SyscallIntent) + 'static,
+        F: (FnMut(&SyscallContext<'_>) -> Result<SyscallIntent<SyscallReturnValue>, SyscallError>) + 'static,
     {
         unsafe extern "C" fn trampoline<F>(syscall_frame: *mut syscall_frame, arg: *mut c_void)
         where
-            F: (FnMut(&SyscallContext<'_>) -> SyscallIntent) + 'static,
+            F: (FnMut(&SyscallContext<'_>) -> Result<SyscallIntent<SyscallReturnValue>, SyscallError>) + 'static,
         {
             let f: *mut F = arg.cast();
             let f: &mut F = unsafe { &mut *f };
@@ -93,18 +119,20 @@ impl Syscalls {
                 args: syscall_frame.a,
                 num: syscall_frame.num,
             };
-            let intent = f(&context);
+            let intent = match f(&context) {
+                Ok(intent) => match intent {
+                    SyscallIntent::Return(value) => SyscallIntent::Return(Ok(value)),
+                    SyscallIntent::SwitchTo(frame) => SyscallIntent::SwitchTo(frame),
+                },
+                Err(error) => SyscallIntent::Return(Err(error)),
+            };
             match intent {
-                SyscallIntent::Return(value) => {
-                    unsafe {
-                        task_frame.set_syscall_return_value(value);
-                    }
-                }
-                SyscallIntent::SwitchTo(task_frame) => {
-                    unsafe {
-                        syscall_frame.interrupt_frame.write(task_frame.0.cast());
-                    }
-                }
+                SyscallIntent::Return(value) => unsafe {
+                    task_frame.set_syscall_return_value(value);
+                },
+                SyscallIntent::SwitchTo(task_frame) => unsafe {
+                    syscall_frame.interrupt_frame.write(task_frame.0.cast());
+                },
             }
         }
 

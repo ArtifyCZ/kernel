@@ -1,53 +1,51 @@
-use core::ptr::slice_from_raw_parts;
 use crate::platform::drivers::serial::SerialDriver;
-use crate::platform::syscalls::{SyscallContext, SyscallIntent};
+use crate::platform::syscalls::{SyscallContext, SyscallError, SyscallIntent};
 use crate::platform::terminal::Terminal;
+use crate::syscall_handler::user_ptr::UserPtr;
+use crate::syscall_handler::user_slice::UserSlice;
 use crate::syscall_handler::{SyscallCommand, SyscallCommandHandler, SyscallHandler};
 
 pub struct SysWriteCommand {
     fd: i32,
-    buf: *const u8,
-    count: usize,
+    buf: UserSlice<*const [u8]>,
 }
 
 impl SyscallCommand for SysWriteCommand {
-    fn parse<'a>(ctx: &SyscallContext<'a>) -> Option<Self>
+    type Error = SyscallError;
+
+    fn parse<'a>(ctx: &SyscallContext<'a>) -> Result<Self, Self::Error>
     where
-        Self: 'a
+        Self: 'a,
     {
-        Some(Self {
-            fd: ctx.args[0] as i32,
-            buf: ctx.args[1] as *const u8,
-            count: ctx.args[2] as usize,
-        })
+        let fd = ctx.args[0] as i32;
+        let buf = UserPtr::try_from(ctx.args[1])?;
+        let count = ctx.args[2] as usize;
+        let buf = UserSlice::try_from((buf, count))?;
+        Ok(Self { fd, buf })
     }
 }
 
 impl SyscallCommandHandler<SysWriteCommand> for SyscallHandler {
-    fn handle_command(&self, command: SysWriteCommand) -> SyscallIntent {
+    type Ok = ();
+    type Err = SyscallError;
+
+    fn handle_command(
+        &self,
+        command: SysWriteCommand,
+    ) -> Result<SyscallIntent<Self::Ok>, Self::Err> {
         // @TODO: add defensive checks (e.g. is the buffer in its full size mapped to the address space?
         // @TODO: use new-type and other patterns
         // stdout or stderr
         if command.fd != 1 && command.fd != 2 {
             // EBADF: Bad File Descriptor
-            return SyscallIntent::Return(1);
-        }
-
-        // Basic Range Check: Is the buffer in User Space?
-        // On x86_64, user addresses are usually < 0x00007FFFFFFFFFFF
-        if command.buf as usize >= 0x800000000000usize || (command.buf as usize + command.count) >= 0x800000000000 {
-            // EFAULT: Bad Address
-            return SyscallIntent::Return(1);
+            return Err(SyscallError::SYS_EBADF);
         }
 
         unsafe {
-            let user_buf = slice_from_raw_parts(command.buf, command.count)
-                .as_ref()
-                .unwrap();
-            SerialDriver::write(user_buf);
-            Terminal::print_bytes(user_buf);
+            SerialDriver::write(command.buf.as_slice());
+            Terminal::print_bytes(command.buf.as_slice());
         }
 
-        SyscallIntent::Return(0)
+        Ok(SyscallIntent::Return(()))
     }
 }

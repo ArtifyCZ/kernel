@@ -1,5 +1,6 @@
 #pragma once
 
+#include "../../include/syscall_user.h"
 #include <stdint.h>
 #include <stddef.h>
 
@@ -8,7 +9,8 @@ struct syscall_args {
     uint64_t a[5];
 };
 
-static inline uint64_t syscall_raw(struct syscall_args args) {
+static inline sys_result_t syscall_raw(struct syscall_args args) {
+    sys_err_t err_code;
     uint64_t ret;
 #if defined (__x86_64__)
     // Tie C variables to specific registers
@@ -21,7 +23,7 @@ static inline uint64_t syscall_raw(struct syscall_args args) {
 
     __asm__ volatile (
         "syscall"
-        : "=a"(ret) // Return value comes back in RAX
+        : "=a"(ret), "=d"(err_code)
         : "r"(rax), "r"(rdi), "r"(rsi), "r"(rdx), "r"(r10), "r"(r8)
         : "rcx", "r11", "memory" // Clobbers
     );
@@ -38,20 +40,22 @@ static inline uint64_t syscall_raw(struct syscall_args args) {
 
     __asm__ volatile (
         "svc #0"
-        : "+r"(x0) // x0 is input (a[0]) and output (ret)
+        : "+r"(x0), "+r"(x1)
         : "r"(x8), "r"(x1), "r"(x2), "r"(x3), "r"(x4)
         : "memory" // Barrier to prevent compiler reordering
     );
     ret = x0;
+    err_code = x1;
 #else
 #error "NOT IMPLEMENTED YET"
 #endif
-    return ret;
+    sys_result_t result = { .err_code = err_code, .value = ret };
+    return result;
 }
 
-#define __DO_SYSCALL(number, ...) ({ \
+#define __arch_syscall(number, ...) ({ \
     struct syscall_args _args = { .num = (number), .a = { __VA_ARGS__ } }; \
     syscall_raw(_args); \
 })
 
-#include "../../include/syscall_user.h"
+SYSCALLS_LIST(SYSCALL_USER_WRAPPER);

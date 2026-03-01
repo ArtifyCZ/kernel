@@ -1,11 +1,11 @@
 use crate::platform::memory_layout::PAGE_FRAME_SIZE;
+use crate::platform::syscalls::{SyscallError, SyscallReturnValue, SyscallReturnable};
 use crate::platform::tasks::bindings::vmm_context;
 use crate::platform::virtual_memory_manager_context::VirtualMemoryManagerContext;
 use alloc::boxed::Box;
 use alloc::sync::Arc;
 use core::ffi::c_void;
 use core::pin::Pin;
-use core::ptr::null_mut;
 
 mod bindings {
     include_bindings!("tasks.rs");
@@ -99,9 +99,13 @@ impl TaskContext {
 }
 
 impl TaskFrame {
-    pub(super) unsafe fn set_syscall_return_value(&mut self, value: u64) {
+    pub(super) unsafe fn set_syscall_return_value(&mut self, value: Result<SyscallReturnValue, SyscallError>) {
         unsafe {
-            bindings::task_set_syscall_return_value(self.0, value);
+            let (error_code, value) = match value {
+                Ok(value) => (SyscallError::SYS_SUCCESS, value),
+                Err(error_code) => (error_code, ().into_return_value()),
+            };
+            bindings::task_set_syscall_return_value(self.0, error_code as u64, value.0);
         }
     }
 }

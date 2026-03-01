@@ -1,5 +1,5 @@
 use crate::platform::drivers::serial::SerialDriver;
-use crate::platform::syscalls::{SyscallContext, SyscallIntent};
+use crate::platform::syscalls::{SyscallContext, SyscallError, SyscallIntent, SyscallReturnValue};
 use crate::platform::tasks::TaskFrame;
 use crate::syscall_handler::{SyscallCommand, SyscallCommandHandler, SyscallHandler};
 
@@ -8,18 +8,23 @@ pub struct SysExitCommand {
 }
 
 impl SyscallCommand for SysExitCommand {
-    fn parse<'a>(ctx: &SyscallContext<'a>) -> Option<Self>
+    type Error = SyscallError;
+
+    fn parse<'a>(ctx: &SyscallContext<'a>) -> Result<Self, Self::Error>
     where
         Self: 'a,
     {
-        Some(Self {
+        Ok(Self {
             task_frame: *ctx.task_frame,
         })
     }
 }
 
 impl SyscallCommandHandler<SysExitCommand> for SyscallHandler {
-    fn handle_command(&self, command: SysExitCommand) -> SyscallIntent {
+    type Ok = ();
+    type Err = SyscallError;
+
+    fn handle_command(&self, command: SysExitCommand) -> Result<SyscallIntent<Self::Ok>, Self::Err> {
         unsafe {
             SerialDriver::println("=== EXIT SYSCALL ===");
         }
@@ -28,6 +33,6 @@ impl SyscallCommandHandler<SysExitCommand> for SyscallHandler {
             .exit_current_task(command.task_frame)
             .unwrap();
 
-        SyscallIntent::SwitchTo(next_task_state)
+        Ok(SyscallIntent::SwitchTo(next_task_state))
     }
 }

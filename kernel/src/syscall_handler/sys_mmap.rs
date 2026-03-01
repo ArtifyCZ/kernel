@@ -2,14 +2,15 @@ use alloc::format;
 use crate::platform::drivers::serial::SerialDriver;
 use crate::platform::memory_layout::PAGE_FRAME_SIZE;
 use crate::platform::physical_memory_manager::PhysicalMemoryManager;
-use crate::platform::syscalls::{SyscallContext, SyscallIntent};
+use crate::platform::syscalls::{SyscallContext, SyscallError, SyscallIntent};
 use crate::platform::virtual_memory_manager_context::VirtualMemoryMappingFlags;
 use crate::platform::virtual_page_address::VirtualPageAddress;
 use crate::syscall_handler::{SyscallCommand, SyscallCommandHandler, SyscallHandler};
+use crate::syscall_handler::user_ptr::UserPtr;
+use crate::syscall_handler::user_slice::UserSlice;
 
 pub struct SysMmapCommand {
-    addr: usize,
-    length: usize,
+    chunk: UserSlice<*const [u8]>,
     // @TODO: implement protection flags
     #[allow(unused)]
     prot: u32,
@@ -19,36 +20,40 @@ pub struct SysMmapCommand {
 }
 
 impl SyscallCommand for SysMmapCommand {
-    fn parse<'a>(ctx: &SyscallContext<'a>) -> Option<Self>
+    type Error = SyscallError;
+
+    fn parse<'a>(ctx: &SyscallContext<'a>) -> Result<Self, Self::Error>
     where
         Self: 'a
     {
-        Some(Self {
-            addr: ctx.args[0] as usize,
-            length: ctx.args[1] as usize,
-            prot: ctx.args[2] as u32,
-            flags: ctx.args[3] as u32,
+        let addr = ctx.args[0] as usize;
+        let length = ctx.args[1] as usize;
+        let prot = ctx.args[2] as u32;
+        let flags = ctx.args[3] as u32;
+
+        let chunk_start = UserPtr::try_from(addr)?;
+        let chunk = UserSlice::try_from((chunk_start, length))?;
+
+        Ok(Self {
+            chunk,
+            prot,
+            flags,
         })
     }
 }
 
 impl SyscallCommandHandler<SysMmapCommand> for SyscallHandler {
-    fn handle_command(&self, command: SysMmapCommand) -> SyscallIntent {
+    type Ok = UserPtr<usize>;
+    type Err = SyscallError;
 
-        if command.addr >= 0x800000000000 || (command.addr + command.length) >= 0x800000000000 {
-            unsafe {
-                SerialDriver::println("mmap: EFAULT: Bad Address");
-                SerialDriver::println(&format!("addr: {}; len: {}", command.addr, command.length));
-            }
-            return SyscallIntent::Return(0);
-        }
-
+    fn handle_command(&self, command: SysMmapCommand) -> Result<SyscallIntent<Self::Ok>, Self::Err> {
         const PAGE_MASK: usize = !(PAGE_FRAME_SIZE - 1);
-        let addr = command.addr & PAGE_MASK;
-        let pages_count = (command.length + PAGE_FRAME_SIZE - 1) / PAGE_FRAME_SIZE;
+        let addr = UserPtr::try_from(command.chunk.addr() & PAGE_MASK)?;
+        let pages_count = (command.chunk.len() + PAGE_FRAME_SIZE - 1) / PAGE_FRAME_SIZE;
 
         for page_idx in 0..pages_count {
-            let page_vaddr = VirtualPageAddress::new(addr + page_idx * PAGE_FRAME_SIZE).unwrap();
+            let page_vaddr = UserPtr::try_from(*addr + page_idx * PAGE_FRAME_SIZE)?;
+            let page_vaddr = VirtualPageAddress::new(*page_vaddr).unwrap();
             let phys = unsafe { PhysicalMemoryManager::alloc_frame() }.unwrap();
             unsafe {
                 self.scheduler.access_current_task_context(|task| {
@@ -63,6 +68,6 @@ impl SyscallCommandHandler<SysMmapCommand> for SyscallHandler {
             }
         }
 
-        SyscallIntent::Return(addr as u64)
+        Ok(SyscallIntent::Return(addr))
     }
 }
