@@ -1,6 +1,6 @@
 use crate::platform::syscalls::{SyscallContext, SyscallError, SyscallIntent};
-use crate::syscall_handler::{SyscallCommand, SyscallCommandHandler, SyscallHandler};
 use crate::syscall_handler::user_ptr::UserPtr;
+use crate::syscall_handler::{SyscallCommand, SyscallCommandHandler, SyscallHandler};
 use crate::task_id::TaskId;
 use crate::task_registry::TaskSpec;
 
@@ -17,7 +17,7 @@ impl SyscallCommand for SysCloneCommand {
 
     fn parse<'a>(ctx: &SyscallContext<'a>) -> Result<Self, Self::Error>
     where
-        Self: 'a
+        Self: 'a,
     {
         let flags = ctx.args[0];
         let stack_pointer = UserPtr::try_from(ctx.args[1])?;
@@ -35,11 +35,16 @@ impl SyscallCommandHandler<SysCloneCommand> for SyscallHandler {
     type Ok = TaskId;
     type Err = SyscallError;
 
-    fn handle_command(&self, command: SysCloneCommand) -> Result<SyscallIntent<Self::Ok>, Self::Err> {
+    fn handle_command(
+        &self,
+        command: SysCloneCommand,
+    ) -> Result<SyscallIntent<Self::Ok>, Self::Err> {
+        let current_task_id = TaskId::get_current().expect("Scheduler is not started yet!");
         let vmm = self
-            .scheduler
-            .access_current_task_context(|task| task.get_virtual_memory_manager().clone())
-            .expect("Scheduler is not started yet!");
+            .task_registry
+            .get(current_task_id)
+            .map(|task| task.get_virtual_memory_manager().clone())
+            .expect("Current task should exist!");
 
         let pid = self.scheduler.spawn(TaskSpec::User {
             virtual_memory_manager_context: vmm,

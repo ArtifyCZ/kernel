@@ -86,19 +86,6 @@ impl Scheduler {
         id
     }
 
-    pub fn access_current_task_context<TOut>(
-        &self,
-        f: impl FnOnce(&TaskContext) -> TOut,
-    ) -> Option<TOut> {
-        let inner = self.0.lock();
-        if !inner.started {
-            return None;
-        }
-        let task_id = TaskId::get_current()?;
-        let task = inner.tasks.get(task_id).unwrap();
-        Some(f(task.deref()))
-    }
-
     pub fn heartbeat(&self, prev_frame: TaskFrame) -> Option<TaskFrame> {
         let mut inner = self.0.lock();
         if !inner.started {

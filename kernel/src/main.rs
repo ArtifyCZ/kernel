@@ -104,7 +104,7 @@ fn main(hhdm_offset: u64, rsdp_address: u64) {
 
         let scheduler = Scheduler::init(registry);
 
-        let syscall_handler = SyscallHandler::init(scheduler);
+        let syscall_handler = SyscallHandler::init(scheduler, registry);
         Syscalls::init(|ctx| syscall_handler.handle(ctx));
         Elf::init(hhdm_offset);
         Timer::init(100);

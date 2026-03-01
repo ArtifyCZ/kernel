@@ -13,11 +13,8 @@ use crate::syscall_handler::sys_clone::SysCloneCommand;
 use crate::syscall_handler::sys_exit::SysExitCommand;
 use crate::syscall_handler::sys_mmap::SysMmapCommand;
 use crate::syscall_handler::sys_write::SysWriteCommand;
+use crate::task_registry::TaskRegistry;
 use alloc::boxed::Box;
-
-pub struct SyscallHandler {
-    scheduler: &'static Scheduler,
-}
 
 macro_rules! define_syscall_request {
     ($name:ident, { $(
@@ -88,9 +85,20 @@ pub trait SyscallCommandHandler<TSyscallCommand> {
     ) -> Result<SyscallIntent<Self::Ok>, Self::Err>;
 }
 
+pub struct SyscallHandler {
+    scheduler: &'static Scheduler,
+    task_registry: &'static TaskRegistry,
+}
+
 impl SyscallHandler {
-    pub fn init(scheduler: &'static Scheduler) -> &'static Self {
-        let syscall_handler: &'static Self = Box::leak(Box::new(SyscallHandler { scheduler }));
+    pub fn init(
+        scheduler: &'static Scheduler,
+        task_registry: &'static TaskRegistry,
+    ) -> &'static Self {
+        let syscall_handler: &'static Self = Box::leak(Box::new(SyscallHandler {
+            scheduler,
+            task_registry,
+        }));
         syscall_handler
     }
 
