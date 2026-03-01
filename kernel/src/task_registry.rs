@@ -3,14 +3,30 @@ use crate::platform::tasks::TaskContext;
 use crate::task_id::TaskId;
 use alloc::boxed::Box;
 use alloc::collections::BTreeMap;
+use alloc::sync::Arc;
 use core::ops::{Deref, DerefMut};
+use crate::platform::virtual_memory_manager_context::VirtualMemoryManagerContext;
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 pub struct TaskRegistry(InterruptSafeSpinLock<TaskRegistryInner>);
 
-#[derive(Default)]
+#[derive(Default, Debug)]
 struct TaskRegistryInner {
     tasks: BTreeMap<TaskId, TaskContext>,
+}
+
+#[derive(Debug)]
+pub enum TaskSpec {
+    User {
+        virtual_memory_manager_context: Arc<VirtualMemoryManagerContext>,
+        user_stack_vaddr: usize,
+        entrypoint_vaddr: usize,
+    },
+    Kernel {
+        function: unsafe extern "C" fn(arg: *mut core::ffi::c_void),
+        arg: *mut core::ffi::c_void,
+        kernel_stack_size: usize,
+    },
 }
 
 impl TaskRegistry {
@@ -26,7 +42,20 @@ impl TaskRegistry {
         Some(TaskGuard { id, inner })
     }
 
-    pub fn insert(&self, id: TaskId, task: TaskContext) {
+    pub fn create_task(&self, spec: TaskSpec) -> TaskId {
+        let id = TaskId::new();
+        self.insert(id, match spec {
+            TaskSpec::User { virtual_memory_manager_context, user_stack_vaddr, entrypoint_vaddr } => {
+                TaskContext::new_user(virtual_memory_manager_context, user_stack_vaddr, entrypoint_vaddr)
+            }
+            TaskSpec::Kernel { function, arg, kernel_stack_size } => {
+                TaskContext::new_kernel(function, arg, kernel_stack_size)
+            }
+        });
+        id
+    }
+
+    fn insert(&self, id: TaskId, task: TaskContext) {
         let mut inner = self.0.lock();
         if inner.tasks.contains_key(&id) {
             panic!("Trying to insert a task with an existing id: {:?}!", id);

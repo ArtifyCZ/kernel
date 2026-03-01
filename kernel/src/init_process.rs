@@ -14,6 +14,7 @@ use crate::platform::physical_memory_manager::PhysicalMemoryManager;
 use crate::platform::virtual_memory_manager_context::VirtualMemoryMappingFlags;
 use crate::platform::virtual_page_address::VirtualPageAddress;
 use crate::scheduler::Scheduler;
+use crate::task_registry::TaskSpec;
 
 fn load_init_into_memory(init_ctx: &VirtualMemoryManagerContext) -> usize {
     let init_elf_string = CString::from_str("init.elf").expect("Failed to create CString");
@@ -50,6 +51,9 @@ pub fn spawn_init_process(scheduler: &Scheduler) {
     let entrypoint_vaddr = load_init_into_memory(&init_ctx);
     let stack_top_vaddr = allocate_init_stack(&init_ctx);
 
-    let task = TaskContext::new_user(Arc::new(init_ctx), stack_top_vaddr, entrypoint_vaddr);
-    scheduler.add(task);
+    scheduler.spawn(TaskSpec::User {
+        virtual_memory_manager_context: Arc::new(init_ctx),
+        user_stack_vaddr: stack_top_vaddr,
+        entrypoint_vaddr,
+    });
 }

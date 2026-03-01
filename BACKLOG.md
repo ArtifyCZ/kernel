@@ -18,3 +18,5 @@ switching to a different user-space task, as the rcx register is getting overwri
 This might be solvable by switching to the `iretq` instruction when returning to a different
 task than the one that invoked the syscall. This way is already used when returning from a syscall
 to a kernel thread.
+- The kernel memory allocator supports only allocation, no freeing.
+- VirtualMemoryManagerContext is leaking memory when it is destroyed, as the page table is not freed.

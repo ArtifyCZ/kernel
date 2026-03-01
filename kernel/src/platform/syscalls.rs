@@ -16,6 +16,7 @@ use crate::platform::physical_memory_manager::PhysicalMemoryManager;
 use crate::platform::virtual_memory_manager_context::VirtualMemoryMappingFlags;
 use crate::platform::virtual_page_address::VirtualPageAddress;
 pub use bindings::syscall_args;
+use crate::task_registry::TaskSpec;
 
 pub struct Syscalls;
 
@@ -144,14 +145,17 @@ impl Syscalls {
         let entrypoint = frame.a[2] as usize;
         if stack_pointer >= 0x800000000000 || entrypoint >= 0x800000000000 {
             unsafe {
-                scheduler.update_current_task_context(|task| task.set_syscall_return_value(1));
+                scheduler.update_current_task_context(|task| task.set_syscall_return_value(0));
             }
             return;
         }
-        let new_task = TaskContext::new_user(vmm, stack_pointer, entrypoint);
-        scheduler.add(new_task);
+        let pid = scheduler.spawn(TaskSpec::User {
+            virtual_memory_manager_context: vmm,
+            user_stack_vaddr: stack_pointer,
+            entrypoint_vaddr: entrypoint,
+        });
         unsafe {
-            scheduler.update_current_task_context(|task| task.set_syscall_return_value(0));
+            scheduler.update_current_task_context(|task| task.set_syscall_return_value(pid.get()));
         }
     }
 

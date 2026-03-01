@@ -41,13 +41,12 @@ use crate::platform::drivers::serial::SerialDriver;
 use crate::platform::elf::Elf;
 use crate::platform::interrupts::Interrupts;
 use crate::platform::memory_layout::PAGE_FRAME_SIZE;
-use crate::platform::syscalls::Syscalls;
-use crate::platform::tasks::TaskContext;
+use crate::platform::syscalls::{sys_exit, Syscalls};
 use crate::platform::terminal::Terminal;
 use crate::platform::timer::Timer;
+use crate::task_registry::{TaskRegistry, TaskSpec};
 use scheduler::Scheduler;
 use ticker::Ticker;
-use crate::task_registry::TaskRegistry;
 
 fn thread_heartbeat() {
     let mut i = 0;
@@ -82,13 +81,15 @@ where
     {
         let f: Box<F> = unsafe { Box::from_raw(args.cast()) };
         f();
-        todo!("Invoking syscalls from Rust not implemented yet (should use sys_exit)")
+        unsafe { sys_exit() };
     }
 
     let arg = Box::into_raw(Box::new(f)).cast();
-
-    let task = TaskContext::new_kernel(trampoline::<F>, arg, 4 * PAGE_FRAME_SIZE);
-    scheduler.add(task);
+    scheduler.spawn(TaskSpec::Kernel {
+        function: trampoline::<F>,
+        arg,
+        kernel_stack_size: 4 * PAGE_FRAME_SIZE,
+    });
 }
 
 fn main(hhdm_offset: u64, rsdp_address: u64) {

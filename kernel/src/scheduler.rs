@@ -2,14 +2,18 @@ use crate::interrupt_safe_spin_lock::InterruptSafeSpinLock;
 use crate::platform::drivers::serial::SerialDriver;
 use crate::platform::tasks::{TaskContext, TaskFrame};
 use crate::task_id::TaskId;
-use crate::task_registry::{TaskGuard, TaskRegistry};
+use crate::task_registry::{TaskGuard, TaskRegistry, TaskSpec};
 use alloc::boxed::Box;
 use alloc::collections::VecDeque;
+use core::ffi::c_void;
 use core::ops::{Deref, DerefMut};
+use core::ptr::null_mut;
+use crate::platform::memory_layout::PAGE_FRAME_SIZE;
 
-#[derive(Default)]
+#[derive(Debug)]
 pub struct Scheduler(InterruptSafeSpinLock<SchedulerInner>);
 
+#[derive(Debug)]
 #[repr(C)]
 struct SchedulerInner {
     current_task: Option<TaskId>,
@@ -17,24 +21,6 @@ struct SchedulerInner {
     started: bool,
     tasks: &'static TaskRegistry,
     ready_tasks: VecDeque<TaskId>,
-}
-
-impl Default for SchedulerInner {
-    fn default() -> Self {
-        let null_task_id = TaskId::new();
-        let null_task = TaskContext::new_kernel_null();
-        let tasks = TaskRegistry::new();
-        tasks.insert(null_task_id, null_task);
-        let mut ready_tasks = VecDeque::new();
-        ready_tasks.push_back(null_task_id);
-        SchedulerInner {
-            started: false,
-            current_task: None,
-            null_task: null_task_id,
-            tasks,
-            ready_tasks,
-        }
-    }
 }
 
 impl SchedulerInner {
@@ -54,13 +40,27 @@ impl SchedulerInner {
     }
 }
 
+unsafe extern "C" fn null_thread(_arg: *mut c_void) {
+    loop {
+        unsafe {
+            #[cfg(target_arch = "x86_64")]
+            core::arch::asm!("hlt", options(nomem, nostack, preserves_flags));
+
+            #[cfg(target_arch = "aarch64")]
+            core::arch::asm!("wfi", options(nomem, nostack, preserves_flags));
+        }
+    }
+}
+
 impl Scheduler {
     pub fn init(task_registry: &'static TaskRegistry) -> &'static Self {
         unsafe {
             SerialDriver::println("Initializing scheduler...");
-            let null_task_id = TaskId::new();
-            let null_task = TaskContext::new_kernel_null();
-            task_registry.insert(null_task_id, null_task);
+            let null_task_id = task_registry.create_task(TaskSpec::Kernel {
+                function: null_thread,
+                arg: null_mut(),
+                kernel_stack_size: PAGE_FRAME_SIZE,
+            });
             let mut ready_tasks = VecDeque::new();
             ready_tasks.push_back(null_task_id);
             let scheduler: &'static Self = Box::leak(Box::new(Scheduler(
@@ -82,11 +82,11 @@ impl Scheduler {
         inner.started = true;
     }
 
-    pub fn add(&self, task: TaskContext) {
+    pub fn spawn(&self, task: TaskSpec) -> TaskId {
         let mut inner = self.0.lock();
-        let task_id = TaskId::new();
-        inner.tasks.insert(task_id, task);
-        inner.ready_tasks.push_back(task_id);
+        let id = inner.tasks.create_task(task);
+        inner.ready_tasks.push_back(id);
+        id
     }
 
     pub fn update_current_task_context(&self, f: impl FnOnce(&mut TaskContext)) {
