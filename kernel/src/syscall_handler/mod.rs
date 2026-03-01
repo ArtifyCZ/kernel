@@ -1,25 +1,29 @@
 mod sys_exit;
+mod sys_write;
 
 use crate::platform::drivers::serial::SerialDriver;
 use crate::platform::memory_layout::PAGE_FRAME_SIZE;
 use crate::platform::physical_memory_manager::PhysicalMemoryManager;
-use crate::platform::syscalls::{syscall_num, SyscallContext, SyscallIntent};
+use crate::platform::syscalls::{SyscallContext, SyscallIntent, syscall_num};
 use crate::platform::terminal::Terminal;
 use crate::platform::virtual_memory_manager_context::VirtualMemoryMappingFlags;
 use crate::platform::virtual_page_address::VirtualPageAddress;
 use crate::scheduler::Scheduler;
+use crate::syscall_handler::sys_exit::SysExitCommand;
 use crate::task_registry::TaskSpec;
 use alloc::boxed::Box;
 use alloc::format;
 use core::ptr::slice_from_raw_parts;
-use crate::syscall_handler::sys_exit::SysExitCommand;
+use crate::syscall_handler::sys_write::SysWriteCommand;
 
 pub struct SyscallHandler {
     scheduler: &'static Scheduler,
 }
 
-pub trait SyscallCommand {
-    fn parse<'a>(ctx: &SyscallContext<'a>) -> Self where Self: 'a;
+pub trait SyscallCommand: Sized {
+    fn parse<'a>(ctx: &SyscallContext<'a>) -> Option<Self>
+    where
+        Self: 'a;
 }
 
 pub trait SyscallCommandHandler<TSyscallCommand> {
@@ -34,42 +38,12 @@ impl SyscallHandler {
 
     pub fn handle(&self, ctx: &SyscallContext<'_>) -> SyscallIntent {
         match ctx.num {
-            syscall_num::SYS_EXIT => self.handle_command(SysExitCommand::parse(ctx)),
-            syscall_num::SYS_WRITE => self.sys_write(ctx),
+            syscall_num::SYS_EXIT => self.handle_command(SysExitCommand::parse(ctx).unwrap()),
+            syscall_num::SYS_WRITE => self.handle_command(SysWriteCommand::parse(ctx).unwrap()),
             syscall_num::SYS_CLONE => self.sys_clone(ctx),
             syscall_num::SYS_MMAP => self.sys_mmap(ctx),
             _ => panic!("Non-existent syscall triggered!"), // @TODO: add better handling
         }
-    }
-
-    fn sys_write(&self, ctx: &SyscallContext<'_>) -> SyscallIntent {
-        let fd = ctx.args[0];
-        let user_buf = ctx.args[1];
-        let count = ctx.args[2];
-
-        // stdout or stderr
-        if fd != 1 && fd != 2 {
-            // EBADF: Bad File Descriptor
-            return SyscallIntent::Return(1);
-        }
-
-        // Basic Range Check: Is the buffer in User Space?
-        // On x86_64, user addresses are usually < 0x00007FFFFFFFFFFF
-        if user_buf >= 0x800000000000 || (user_buf + count) >= 0x800000000000 {
-            // EFAULT: Bad Address
-            return SyscallIntent::Return(1);
-        }
-
-        let user_buf = user_buf as *const u8;
-        unsafe {
-            let user_buf = slice_from_raw_parts(user_buf, count as usize)
-                .as_ref()
-                .unwrap();
-            SerialDriver::write(user_buf);
-            Terminal::print_bytes(user_buf);
-        }
-
-        SyscallIntent::Return(0)
     }
 
     fn sys_clone(&self, ctx: &SyscallContext<'_>) -> SyscallIntent {
