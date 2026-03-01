@@ -81,22 +81,6 @@ impl TaskContext {
         }
     }
 
-    pub fn new_kernel_null() -> Self {
-        unsafe extern "C" fn null_thread(_arg: *mut c_void) {
-            loop {
-                unsafe {
-                    #[cfg(target_arch = "x86_64")]
-                    core::arch::asm!("hlt", options(nomem, nostack, preserves_flags));
-
-                    #[cfg(target_arch = "aarch64")]
-                    core::arch::asm!("wfi", options(nomem, nostack, preserves_flags));
-                }
-            }
-        }
-
-        Self::new_kernel(null_thread, null_mut(), PAGE_FRAME_SIZE)
-    }
-
     pub fn get_virtual_memory_manager(&self) -> &Arc<VirtualMemoryManagerContext> {
         self.user_ctx.as_ref().unwrap()
     }
@@ -105,19 +89,19 @@ impl TaskContext {
         self.state = state;
     }
 
-    pub unsafe fn set_syscall_return_value(&mut self, value: u64) {
-        unsafe {
-            // @TODO: make this function again visible for the platform module only (visibility `super`)
-            bindings::task_set_syscall_return_value(self.state.0, value);
-        }
-    }
-
-    #[must_use]
     pub fn activate(&self) -> TaskFrame {
         let kernel_stack_top = self.kernel_stack.as_ptr_range().end as usize;
         unsafe {
             bindings::task_prepare_switch(kernel_stack_top);
         }
         self.state
+    }
+}
+
+impl TaskFrame {
+    pub(super) unsafe fn set_syscall_return_value(&mut self, value: u64) {
+        unsafe {
+            bindings::task_set_syscall_return_value(self.0, value);
+        }
     }
 }

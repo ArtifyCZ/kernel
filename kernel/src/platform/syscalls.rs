@@ -63,32 +63,48 @@ wrap_syscall!(sys_clone, syscall_num::SYS_CLONE, flags: u64, stack_pointer: usiz
 wrap_syscall!(sys_mmap, syscall_num::SYS_MMAP, addr: usize, length: usize, prot: u32, flags: u32);
 
 pub struct SyscallContext<'a> {
-    pub task_frame: &'a mut TaskFrame,
+    pub task_frame: &'a TaskFrame,
     pub args: [u64; 5],
     pub num: u64,
+}
+
+pub enum SyscallIntent {
+    /// Returns to the caller
+    Return(u64),
+    /// Switches to the specified task
+    SwitchTo(TaskFrame),
 }
 
 impl Syscalls {
     pub unsafe fn init<F>(f: F)
     where
-        F: (FnMut(&mut SyscallContext<'_>)) + 'static,
+        F: (FnMut(&SyscallContext<'_>) -> SyscallIntent) + 'static,
     {
         unsafe extern "C" fn trampoline<F>(syscall_frame: *mut syscall_frame, arg: *mut c_void)
         where
-            F: (FnMut(&mut SyscallContext<'_>)) + 'static,
+            F: (FnMut(&SyscallContext<'_>) -> SyscallIntent) + 'static,
         {
             let f: *mut F = arg.cast();
             let f: &mut F = unsafe { &mut *f };
             let syscall_frame: &mut syscall_frame = unsafe { &mut *syscall_frame };
             let mut task_frame = TaskFrame(unsafe { syscall_frame.interrupt_frame.read() }.cast());
-            let mut context = SyscallContext {
-                task_frame: &mut task_frame,
+            let context = SyscallContext {
+                task_frame: &task_frame,
                 args: syscall_frame.a,
                 num: syscall_frame.num,
             };
-            f(&mut context);
-            unsafe {
-                syscall_frame.interrupt_frame.write(task_frame.0.cast());
+            let intent = f(&context);
+            match intent {
+                SyscallIntent::Return(value) => {
+                    unsafe {
+                        task_frame.set_syscall_return_value(value);
+                    }
+                }
+                SyscallIntent::SwitchTo(task_frame) => {
+                    unsafe {
+                        syscall_frame.interrupt_frame.write(task_frame.0.cast());
+                    }
+                }
             }
         }
 

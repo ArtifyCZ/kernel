@@ -1,7 +1,7 @@
 use crate::platform::drivers::serial::SerialDriver;
 use crate::platform::memory_layout::PAGE_FRAME_SIZE;
 use crate::platform::physical_memory_manager::PhysicalMemoryManager;
-use crate::platform::syscalls::{syscall_num, SyscallContext};
+use crate::platform::syscalls::{syscall_num, SyscallContext, SyscallIntent};
 use crate::platform::terminal::Terminal;
 use crate::platform::virtual_memory_manager_context::VirtualMemoryMappingFlags;
 use crate::platform::virtual_page_address::VirtualPageAddress;
@@ -21,7 +21,7 @@ impl SyscallHandler {
         syscall_handler
     }
 
-    pub fn handle(&self, ctx: &mut SyscallContext<'_>) {
+    pub fn handle(&self, ctx: &SyscallContext<'_>) -> SyscallIntent {
         match ctx.num {
             syscall_num::SYS_EXIT => self.sys_exit(ctx),
             syscall_num::SYS_WRITE => self.sys_write(ctx),
@@ -31,40 +31,32 @@ impl SyscallHandler {
         }
     }
 
-    fn sys_exit(&self, ctx: &mut SyscallContext<'_>) {
+    fn sys_exit(&self, ctx: &SyscallContext<'_>) -> SyscallIntent {
         unsafe {
             SerialDriver::println("=== EXIT SYSCALL ===");
         }
         let prev_task_state = ctx.task_frame.clone();
         let next_task_state = self.scheduler.exit_current_task(prev_task_state).unwrap();
 
-        *ctx.task_frame = next_task_state;
+        SyscallIntent::SwitchTo(next_task_state)
     }
 
-    fn sys_write(&self, ctx: &mut SyscallContext<'_>) {
+    fn sys_write(&self, ctx: &SyscallContext<'_>) -> SyscallIntent {
         let fd = ctx.args[0];
         let user_buf = ctx.args[1];
         let count = ctx.args[2];
 
         // stdout or stderr
         if fd != 1 && fd != 2 {
-            unsafe {
-                // EBADF: Bad File Descriptor
-                self.scheduler
-                    .update_current_task_context(|task| task.set_syscall_return_value(1));
-            }
-            return;
+            // EBADF: Bad File Descriptor
+            return SyscallIntent::Return(1);
         }
 
         // Basic Range Check: Is the buffer in User Space?
         // On x86_64, user addresses are usually < 0x00007FFFFFFFFFFF
         if user_buf >= 0x800000000000 || (user_buf + count) >= 0x800000000000 {
-            unsafe {
-                // EFAULT: Bad Address
-                self.scheduler
-                    .update_current_task_context(|task| task.set_syscall_return_value(1));
-            }
-            return;
+            // EFAULT: Bad Address
+            return SyscallIntent::Return(1);
         }
 
         let user_buf = user_buf as *const u8;
@@ -76,13 +68,10 @@ impl SyscallHandler {
             Terminal::print_bytes(user_buf);
         }
 
-        unsafe {
-            self.scheduler
-                .update_current_task_context(|task| task.set_syscall_return_value(0));
-        }
+        SyscallIntent::Return(0)
     }
 
-    fn sys_clone(&self, ctx: &mut SyscallContext<'_>) {
+    fn sys_clone(&self, ctx: &SyscallContext<'_>) -> SyscallIntent {
         let vmm = self
             .scheduler
             .access_current_task_context(|task| task.get_virtual_memory_manager().clone())
@@ -92,24 +81,17 @@ impl SyscallHandler {
         let stack_pointer = ctx.args[1] as usize;
         let entrypoint = ctx.args[2] as usize;
         if stack_pointer >= 0x800000000000 || entrypoint >= 0x800000000000 {
-            unsafe {
-                self.scheduler
-                    .update_current_task_context(|task| task.set_syscall_return_value(0));
-            }
-            return;
+            return SyscallIntent::Return(0);
         }
         let pid = self.scheduler.spawn(TaskSpec::User {
             virtual_memory_manager_context: vmm,
             user_stack_vaddr: stack_pointer,
             entrypoint_vaddr: entrypoint,
         });
-        unsafe {
-            self.scheduler
-                .update_current_task_context(|task| task.set_syscall_return_value(pid.get()));
-        }
+        SyscallIntent::Return(pid.get())
     }
 
-    fn sys_mmap(&self, ctx: &mut SyscallContext<'_>) {
+    fn sys_mmap(&self, ctx: &SyscallContext<'_>) -> SyscallIntent {
         let addr = ctx.args[0] as usize;
         let length = ctx.args[1] as usize;
         let _prot = ctx.args[2] as u32;
@@ -119,10 +101,8 @@ impl SyscallHandler {
             unsafe {
                 SerialDriver::println("mmap: EFAULT: Bad Address");
                 SerialDriver::println(&format!("addr: {}; len: {}", addr, length));
-                self.scheduler
-                    .update_current_task_context(|task| task.set_syscall_return_value(0));
             }
-            return;
+            return SyscallIntent::Return(0);
         }
 
         const PAGE_MASK: usize = !(PAGE_FRAME_SIZE - 1);
@@ -147,9 +127,6 @@ impl SyscallHandler {
             }
         }
 
-        unsafe {
-            self.scheduler
-                .update_current_task_context(|task| task.set_syscall_return_value(addr as u64));
-        }
+        SyscallIntent::Return(addr as u64)
     }
 }
