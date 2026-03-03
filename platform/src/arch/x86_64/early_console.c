@@ -1,20 +1,16 @@
-#include "drivers/serial.h"
+#include "early_console.h"
 
-#include <stdbool.h>
-#include <stdint.h>
-#include <stddef.h>
-
+#include "boot.h"
 #include "io_wrapper.h"
+#include <stddef.h>
+#include <stdint.h>
 
 #define PORT 0x3f8
-
-static bool g_is_initialized = false;
 
 /**
  * @TODO: replace PORT constant with the base parameter
  */
-int serial_init(uintptr_t base) {
-    g_is_initialized = true;
+void early_console_init(uintptr_t serial_base) {
     outb(PORT + 1, 0x00); // Disable all interrupts
     outb(PORT + 3, 0x80); // Enable DLAB (set baud rate divisor)
     outb(PORT + 0, 0x03); // Set divisor to 3 (lo byte) 38400 baud
@@ -27,13 +23,12 @@ int serial_init(uintptr_t base) {
 
     // Check if serial is faulty (i.e: not same byte as sent)
     if (inb(PORT + 0) != 0xAE) {
-        return 1;
+        hcf();
     }
 
-    // If serial is not faulty set it in normal operation mode
+    // If serial is not faulty, set it in normal operation mode
     // (not-loopback with IRQs enabled and OUT#1 and OUT#2 bits enabled)
     outb(PORT + 4, 0x0F);
-    return 0;
 }
 
 static int is_transmit_empty() {
@@ -41,10 +36,6 @@ static int is_transmit_empty() {
 }
 
 static void write_serial(char a) {
-    if (!g_is_initialized) {
-        return;
-    }
-
     while (is_transmit_empty() == 0) {
         __asm__ volatile ("pause");
     }
@@ -52,7 +43,7 @@ static void write_serial(char a) {
     outb(PORT, a);
 }
 
-void serial_write(const uint8_t byte) {
+void early_console_write(const uint8_t byte) {
     while (is_transmit_empty() == 0) {
         __asm__ volatile ("pause");
     }
@@ -60,24 +51,24 @@ void serial_write(const uint8_t byte) {
     outb(PORT, byte);
 }
 
-void serial_print(const char *message) {
+void early_console_print(const char *message) {
     for (size_t i = 0; message[i] != 0x00; i++) {
         write_serial(message[i]);
     }
 }
 
-void serial_println(const char *message) {
+void early_console_println(const char *message) {
     for (size_t i = 0; message[i] != 0x00; i++) {
         write_serial(message[i]);
     }
     write_serial('\n');
 }
 
-void serial_print_hex_u64(uint64_t value) {
+void early_console_print_hex_u64(uint64_t value) {
     static const char *hex = "0123456789abcdef";
-    serial_print("0x");
+    early_console_print("0x");
     for (int i = 60; i >= 0; i -= 4) {
-        uint8_t nib = (value >> (uint64_t) i) & 0xF;
+        const uint8_t nib = (value >> (uint64_t) i) & 0xF;
         write_serial(hex[nib]);
     }
 }

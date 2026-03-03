@@ -1,10 +1,6 @@
-//
-// Created by artify on 2/4/26.
-//
-
 #include "psf.h"
 
-#include "drivers/serial.h"
+#include "early_console.h"
 #include "stdbool.h"
 #include "stddef.h"
 
@@ -38,15 +34,15 @@ static void psf_init_psf1(const struct PSF1_Header *font_header, void *glyphs, u
 }
 
 void psf_init(void *font_address, uint64_t font_size_arg, struct limine_framebuffer *framebuffer_arg) {
-    serial_println("Initializing PC Screen Font...");
+    early_console_println("Initializing PC Screen Font...");
 
     if (font_address == NULL) {
-        serial_println("Got NULL ptr as font address; cannot initialize PSF");
+        early_console_println("Got NULL ptr as font address; cannot initialize PSF");
         return;
     }
 
     if (((uint16_t *) font_address)[0] != PSF1_FONT_MAGIC) {
-        serial_println("Got invalid font magic; cannot initialize PSF");
+        early_console_println("Got invalid font magic; cannot initialize PSF");
         return;
     }
 
@@ -55,7 +51,7 @@ void psf_init(void *font_address, uint64_t font_size_arg, struct limine_framebuf
 
     framebuffer = framebuffer_arg;
 
-    serial_println("");
+    early_console_println("");
 }
 
 void psf_render_char(char c, uint32_t col, uint32_t row, uint32_t foreground_color, uint32_t background_color) {

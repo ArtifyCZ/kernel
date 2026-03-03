@@ -1,4 +1,4 @@
-use crate::platform::drivers::serial::SerialDriver;
+use crate::platform::early_console::EarlyConsole;
 use crate::platform::terminal::Terminal;
 
 #[macro_export]
@@ -14,6 +14,7 @@ pub struct Logger;
 impl core::fmt::Write for Logger {
     fn write_str(&mut self, s: &str) -> core::fmt::Result {
         unsafe {
+            EarlyConsole::write_str(s);
             Terminal::print(s);
         }
         Ok(())

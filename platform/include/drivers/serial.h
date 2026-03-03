@@ -1,16 +1,12 @@
 #pragma once
 
+#include "early_console.h"
 #include "stdint.h"
 
-/**
- * @return Successful if zero, otherwise the initialization failed
- */
-int serial_init(uintptr_t base);
+#define serial_write(byte) early_console_write(byte)
 
-void serial_write(uint8_t byte);
+#define serial_print(message) early_console_print(message)
 
-void serial_print(const char *message);
+#define serial_println(message) early_console_println(message)
 
-void serial_println(const char *message);
-
-void serial_print_hex_u64(uint64_t value);
+#define serial_print_hex_u64(value) early_console_print_hex_u64(value)

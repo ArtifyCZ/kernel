@@ -1,9 +1,10 @@
 #include "interrupts.h"
 #include "cpu_interrupts.h"
-#include <stdint.h>
 
+#include "early_console.h"
 #include "gic.h"
 #include "stddef.h"
+#include <stdint.h>
 #include "syscalls_priv.h"
 #include "drivers/serial.h"
 
@@ -56,7 +57,7 @@ void interrupts_init(void) {
     g_irq_handler = NULL;
     g_irq_handler_priv = NULL;
 
-    serial_println("AArch64: Interrupt system initialized.");
+    early_console_println("AArch64: Interrupt system initialized.");
 }
 
 void interrupts_enable(void) {

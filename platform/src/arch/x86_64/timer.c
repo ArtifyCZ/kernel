@@ -1,6 +1,6 @@
 #include "timer.h"
 
-#include "drivers/serial.h"
+#include "early_console.h"
 #include "interrupts.h"
 #include "io_wrapper.h"
 #include "stddef.h"
@@ -82,9 +82,9 @@ void timer_init(uint32_t freqHz) {
     lapic_write(LAPIC_REG_TDCR, LAPIC_TIMER_DIVISOR);
     lapic_write(LAPIC_REG_TICRET, initial_count);
 
-    serial_print("LAPIC Timer: initialized at ");
-    serial_print_hex_u64(freqHz);
-    serial_println(" Hz");
+    early_console_print("LAPIC Timer: initialized at ");
+    early_console_print_hex_u64(freqHz);
+    early_console_println(" Hz");
 }
 
 void timer_set_tick_handler(timer_tick_handler_t handler, void *priv) {

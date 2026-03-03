@@ -12,7 +12,7 @@ macro_rules! include_bindings {
     };
 }
 
-pub mod drivers;
+pub mod early_console;
 pub mod elf;
 pub mod interrupts;
 pub mod memory_layout;

@@ -1,6 +1,8 @@
-#include "drivers/serial.h"
+#include "early_console.h"
 
+#include "boot.h"
 #include <stdint.h>
+
 #include <stddef.h>
 #include "interrupts.h"
 #include "virtual_address_allocator.h"
@@ -28,18 +30,18 @@ static volatile uint32_t *uart_base = NULL;
  * serial_init: Should be called VERY early.
  * Only sets up basic MMIO mapping and Polling-based TX/RX.
  */
-int serial_init(uintptr_t physical_base) {
-    uintptr_t virtual_base = vaa_alloc_range(VMM_PAGE_SIZE);
+void early_console_init(uintptr_t serial_base) {
+    const uintptr_t virtual_base = vaa_alloc_range(VMM_PAGE_SIZE);
     uart_base = (volatile uint32_t *) virtual_base;
 
-    bool success = vmm_map_page(
+    if (!vmm_map_page(
         &g_kernel_context,
         virtual_base,
-        physical_base,
+        serial_base,
         VMM_FLAG_PRESENT | VMM_FLAG_WRITE | VMM_FLAG_DEVICE
-    );
-
-    if (!success) return -1;
+    )) {
+        hcf();
+    }
 
     // Hardware Reset - Disable everything first
     uart_base[UART_CR] = 0;
@@ -51,17 +53,17 @@ int serial_init(uintptr_t physical_base) {
 
     // Enable UART, TX, and RX (Polling mode is now active)
     uart_base[UART_CR] = (1 << 0) | (1 << 8) | (1 << 9);
-
-    return 0;
 }
 
 static int is_transmit_empty() {
-    if (!uart_base) return 0;
+    if (!uart_base)
+        return 0;
     return !(uart_base[UART_FR] & FR_TXFF);
 }
 
 static void write_serial(char a) {
-    if (!uart_base) return;
+    if (!uart_base)
+        return;
 
     if (a == '\n') {
         write_serial('\r');
@@ -74,8 +76,9 @@ static void write_serial(char a) {
     uart_base[UART_DR] = (uint32_t) a;
 }
 
-void serial_write(const uint8_t byte) {
-    if (!uart_base) return;
+void early_console_write(const uint8_t byte) {
+    if (!uart_base)
+        return;
 
     if (byte == '\n') {
         write_serial('\r');
@@ -88,21 +91,22 @@ void serial_write(const uint8_t byte) {
     uart_base[UART_DR] = (uint32_t) byte;
 }
 
-void serial_print(const char *message) {
-    if (!message) return;
+void early_console_print(const char *message) {
+    if (!message)
+        return;
     for (size_t i = 0; message[i] != '\0'; i++) {
         write_serial(message[i]);
     }
 }
 
-void serial_println(const char *message) {
-    serial_print(message);
+void early_console_println(const char *message) {
+    early_console_print(message);
     write_serial('\n');
 }
 
-void serial_print_hex_u64(uint64_t value) {
+void early_console_print_hex_u64(const uint64_t value) {
     static const char *hex = "0123456789abcdef";
-    serial_print("0x");
+    early_console_print("0x");
     for (int i = 60; i >= 0; i -= 4) {
         uint8_t nib = (value >> i) & 0xF;
         write_serial(hex[nib]);

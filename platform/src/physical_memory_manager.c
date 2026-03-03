@@ -5,6 +5,7 @@
 #include "physical_memory_manager.h"
 
 #include "limine.h"
+#include "early_console.h"
 #include "drivers/serial.h"
 
 static inline uint64_t align_up_u64(uint64_t v, uint64_t a) {
@@ -22,7 +23,6 @@ static size_t page_frames_count;
 
 static void push_page_frame(const uintptr_t page_frame) {
     if (page_frames_count == PAGE_FRAMES_STACK_CAPACITY) {
-        serial_println("Cannot push more frames onto stack, the stack is full!");
         return;
     }
 
@@ -41,14 +41,14 @@ static uintptr_t pop_page_frame(void) {
 void pmm_init(struct limine_memmap_response *memmap) {
     page_frames_count = 0;
     if (memmap == NULL) {
-        serial_println("Got NULL ptr as memmap response; cannot initialize PPM");
+        early_console_println("Got NULL ptr as memmap response; cannot initialize PPM");
         return;
     }
 
     for (size_t i = 0; i < memmap->entry_count; i++) {
         const struct limine_memmap_entry *memmap_entry = memmap->entries[i];
         if (memmap_entry == NULL) {
-            serial_println("Got NULL ptr as memmap entry, continuing");
+            early_console_println("Got NULL ptr as memmap entry, continuing");
             continue;
         }
 
@@ -56,16 +56,16 @@ void pmm_init(struct limine_memmap_response *memmap) {
             continue;
         }
 
-        uint64_t start = align_up_u64(memmap_entry->base, PPM_PAGE_SIZE);
-        uint64_t end = align_down_u64(memmap_entry->base + memmap_entry->length, PPM_PAGE_SIZE);
+        const uint64_t start = align_up_u64(memmap_entry->base, PPM_PAGE_SIZE);
+        const uint64_t end = align_down_u64(memmap_entry->base + memmap_entry->length, PPM_PAGE_SIZE);
         for (uint64_t addr = start; addr < end; addr += PPM_PAGE_SIZE) {
             push_page_frame(addr);
         }
     }
 
-    serial_print("Initialized physical memory manager with ");
-    serial_print_hex_u64(page_frames_count);
-    serial_println(" page frames");
+    early_console_print("Initialized physical memory manager with ");
+    early_console_print_hex_u64(page_frames_count);
+    early_console_println(" page frames");
 }
 
 uintptr_t pmm_alloc_frame(void) {

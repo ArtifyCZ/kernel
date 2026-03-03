@@ -20,10 +20,6 @@ PLATFORM_SRC_FILES += $(wildcard $(platform_src_dir)/common/**/*.c)
 PLATFORM_SRC_FILES += $(wildcard $(platform_src_dir)/arch/$(ARCH)/*.c)
 PLATFORM_ASM_FILES += $(wildcard $(platform_src_dir)/arch/$(ARCH)/*.asm) $(wildcard $(platform_src_dir)/arch/$(ARCH)/*.S)
 
-# Serial driver files
-PLATFORM_SRC_FILES += $(wildcard $(platform_src_dir)/drivers/serial/$(ARCH)/*.c)
-PLATFORM_SRC_FILES += $(wildcard $(platform_src_dir)/drivers/serial/$(ARCH)/**.c)
-
 PLATFORM_ASM_FILES += $(wildcard $(platform_src_dir)/*.$(ARCH).asm) $(wildcard $(platform_src_dir)/**/*.$(ARCH).asm)
 PLATFORM_ASM_FILES += $(wildcard $(platform_src_dir)/*.$(ARCH).S) $(wildcard $(platform_src_dir)/**/*.$(ARCH).S)
 

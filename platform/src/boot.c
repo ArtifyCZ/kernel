@@ -4,6 +4,8 @@
 #include <stddef.h>
 #include <stdbool.h>
 #include <limine.h>
+
+#include "early_console.h"
 #include "interrupts.h"
 #include "modules.h"
 #include "physical_memory_manager.h"
@@ -98,31 +100,31 @@ _Noreturn void hcf(void) {
 void try_virtual_mapping(void) {
     const uintptr_t physical_frame = pmm_alloc_frame();
     if (physical_frame == 0x0) {
-        serial_println("Cannot allocate physical frame for virtual mapping!");
+        early_console_println("Cannot allocate physical frame for virtual mapping!");
         return;
     }
     const uintptr_t virtual_address = 0xFFFFD00000000000;
     if (vmm_translate(&g_kernel_context, virtual_address) != 0x0) {
-        serial_println("Cannot map virtual address 0xFFFFC00000000000, address already mapped!");
+        early_console_println("Cannot map virtual address 0xFFFFC00000000000, address already mapped!");
         return;
     }
 
     if (!vmm_map_page(&g_kernel_context, virtual_address, physical_frame, VMM_FLAG_PRESENT | VMM_FLAG_WRITE)) {
-        serial_println("Cannot map virtual address 0xFFFFC00000000000!");
+        early_console_println("Cannot map virtual address 0xFFFFC00000000000!");
         return;
     }
 
-    serial_println("Virtual mapping successful!");
-    serial_println("Trying to write to the mapped memory");
+    early_console_println("Virtual mapping successful!");
+    early_console_println("Trying to write to the mapped memory");
 
     volatile uint64_t *ptr = (volatile uint64_t *) virtual_address;
     ptr[0] = 0x1122334455667788ull;
     ptr[1] = 0xA5A5A5A5A5A5A5A5ull;
 
-    serial_println("Done!");
+    early_console_println("Done!");
 
     if (ptr[0] != 0x1122334455667788ull || ptr[1] != 0xA5A5A5A5A5A5A5A5ull) {
-        serial_println("VMM test: readback mismatch");
+        early_console_println("VMM test: readback mismatch");
         (void) vmm_unmap_page(&g_kernel_context, virtual_address);
         pmm_free_frame(physical_frame);
         return;
@@ -131,7 +133,7 @@ void try_virtual_mapping(void) {
     (void) vmm_unmap_page(&g_kernel_context, virtual_address);
     pmm_free_frame(physical_frame);
 
-    serial_println("VMM test: success!");
+    early_console_println("VMM test: success!");
 }
 
 __attribute__((used)) void boot(void) {
@@ -164,16 +166,18 @@ __attribute__((used)) void boot(void) {
 #else
 #error "Not implemented yet"
 #endif
-    serial_init(serial_device_base);
-    serial_println("Booting...");
+    early_console_init(serial_device_base);
+    early_console_println("Early console initialized!");
+    early_console_println("");
+    early_console_println("Booting...");
 
     if (memmap_request.response == NULL) {
-        serial_println("Limine memmap missing; cannot init PMM");
+        early_console_println("Limine memmap missing; cannot init PMM");
         hcf();
     }
 
     if (hhdm_request.response == NULL) {
-        serial_println("Limine HHDM missing; cannot init VMM");
+        early_console_println("Limine HHDM missing; cannot init VMM");
         hcf();
     }
 
@@ -187,7 +191,7 @@ __attribute__((used)) void boot(void) {
         psf_init(font->address, font->size, framebuffer_request.response->framebuffers[0]);
         terminal_init(framebuffer_request.response->framebuffers[0]);
     } else {
-        serial_println("Could not find kernel-font.psf!");
+        early_console_println("Could not find kernel-font.psf!");
     }
 
     terminal_set_foreground_color(0xD4DBDF);

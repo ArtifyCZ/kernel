@@ -1,4 +1,3 @@
-use crate::platform::drivers::serial::SerialDriver;
 use crate::platform::syscalls::{SyscallContext, SyscallError, SyscallIntent};
 use crate::platform::terminal::Terminal;
 use crate::syscall_handler::user_ptr::UserPtr;

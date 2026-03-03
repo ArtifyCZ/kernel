@@ -1,10 +1,6 @@
-//
-// Created by artify on 2/4/26.
-//
-
 #include "modules.h"
 
-#include "drivers/serial.h"
+#include "early_console.h"
 #include "stdbool.h"
 #include "stddef.h"
 
@@ -22,16 +18,16 @@ static inline bool strcmp(const char *a, const char *b) {
 }
 
 void modules_init(struct limine_module_response *modules_arg) {
-    serial_println("Initializing modules...");
+    early_console_println("Initializing modules...");
     modules = modules_arg;
 
     for (size_t i = 0; modules != NULL && i < modules->module_count; i++) {
         const struct limine_file *file = modules->modules[i];
-        serial_print("Module ");
-        serial_print(": ");
-        serial_print(file->string);
-        serial_print(" at ");
-        serial_println(file->path);
+        early_console_print("Module ");
+        early_console_print(": ");
+        early_console_print(file->string);
+        early_console_print(" at ");
+        early_console_println(file->path);
     }
 }
 

@@ -1,4 +1,3 @@
-use crate::platform::drivers::serial::SerialDriver;
 use crate::platform::memory_layout::PAGE_FRAME_SIZE;
 use crate::platform::physical_memory_manager::PhysicalMemoryManager;
 use crate::platform::virtual_address::VirtualAddress;
@@ -10,7 +9,6 @@ use crate::platform::virtual_page_address::VirtualPageAddress;
 use crate::spin_lock::SpinLock;
 use core::alloc::{GlobalAlloc, Layout};
 use core::ops::Add;
-use core::ptr::null_mut;
 
 static mut NEXT_AVAILABLE_VIRTUAL_ADDRESS: Option<VirtualAddress> = None;
 static mut LAST_MAPPED_VIRTUAL_PAGE: Option<VirtualPageAddress> = None;
@@ -71,8 +69,7 @@ unsafe impl GlobalAlloc for Allocator {
             let new_frame = match PhysicalMemoryManager::alloc_frame() {
                 Ok(frame) => frame,
                 Err(_err) => {
-                    SerialDriver::write(b"OOM: Physical frame allocation failed\n");
-                    return null_mut();
+                    panic!("OOM: Physical frame allocation failed\n");
                 }
             };
 
@@ -85,8 +82,7 @@ unsafe impl GlobalAlloc for Allocator {
 
             // Ensure not already mapped
             if vmm_context.translate(next_virt_page_addr).unwrap().is_some() {
-                SerialDriver::write(b"Allocator Error: Page already mapped\n");
-                return null_mut();
+                panic!("Allocator Error: Virtual page already mapped\n");
             }
 
             if vmm_context.map_page(
@@ -94,8 +90,7 @@ unsafe impl GlobalAlloc for Allocator {
                 new_frame,
                 VirtualMemoryMappingFlags::PRESENT | VirtualMemoryMappingFlags::WRITE,
             ).is_err() {
-                SerialDriver::write(b"Allocator Error: Failed to map page\n");
-                return null_mut();
+                panic!("Allocator Error: Failed to map page\n");
             }
 
             LAST_MAPPED_VIRTUAL_PAGE = Some(next_virt_page_addr);

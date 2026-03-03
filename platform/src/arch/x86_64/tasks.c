@@ -5,7 +5,6 @@
 #include <string.h>
 
 #include "msr.h"
-#include "drivers/serial.h"
 
 struct interrupt_frame *task_setup_user(
     const struct vmm_context *user_ctx,

@@ -4,9 +4,9 @@
 #include "ioapic.h"
 #include "string.h"
 
+#include "early_console.h"
 #include "virtual_address_allocator.h"
 #include "virtual_memory_manager.h"
-#include "drivers/serial.h"
 
 static volatile struct rsdp_descriptor *g_rsdp = NULL;
 
@@ -37,9 +37,9 @@ static struct acpi_header *acpi_find_table(char *target_signature) {
     uint32_t entries = (rsdt_ptr->header.length - sizeof(struct acpi_header)) / 4;
 
     for (uint32_t i = 0; i < entries; i++) {
-        serial_print("RSDT entry: ");
-        serial_print_hex_u64(i);
-        serial_println("");
+        early_console_print("RSDT entry: ");
+        early_console_print_hex_u64(i);
+        early_console_println("");
         struct acpi_header *header = map_physical_table(rsdt_ptr->pointer_to_other_tables[i]);
 
         if (memcmp(header->signature, target_signature, 4) == 0) {
@@ -55,18 +55,18 @@ void acpi_init(void *rsdp) {
     g_rsdp = rsdp;
 
     if (g_rsdp->revision != 0) {
-        serial_println("==================");
-        serial_println("  KERNEL PANIC");
-        serial_print("RSDP revision: ");
-        serial_print_hex_u64(g_rsdp->revision);
-        serial_println("");
-        serial_println("NOT IMPLEMENTED!");
+        early_console_println("==================");
+        early_console_println("  KERNEL PANIC");
+        early_console_print("RSDP revision: ");
+        early_console_print_hex_u64(g_rsdp->revision);
+        early_console_println("");
+        early_console_println("NOT IMPLEMENTED!");
         hcf();
     }
 
     struct madt_header *madt = (struct madt_header *)acpi_find_table("APIC");
     if (!madt) {
-        serial_println("MADT not found!");
+        early_console_println("MADT not found!");
         return;
     }
 
@@ -79,19 +79,19 @@ void acpi_init(void *rsdp) {
         switch (entry->type) {
             case 1: { // I/O APIC
                 struct madt_ioapic *io = (struct madt_ioapic *)ptr;
-                serial_print("Found I/O APIC at phys: ");
-                serial_print_hex_u64(io->address);
-                serial_println("");
+                early_console_print("Found I/O APIC at phys: ");
+                early_console_print_hex_u64(io->address);
+                early_console_println("");
                 g_ioapic = io->address;
                 break;
             }
             case 2: { // Interrupt Source Override
                 struct madt_iso *iso = (struct madt_iso *)ptr;
-                serial_print("ISO: IRQ ");
-                serial_print_hex_u64(iso->irq_source);
-                serial_print(" -> GSI ");
-                serial_print_hex_u64(iso->gsi);
-                serial_println("");
+                early_console_print("ISO: IRQ ");
+                early_console_print_hex_u64(iso->irq_source);
+                early_console_print(" -> GSI ");
+                early_console_print_hex_u64(iso->gsi);
+                early_console_println("");
                 break;
             }
         }
