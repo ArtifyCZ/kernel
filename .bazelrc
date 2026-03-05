@@ -1,0 +1,6 @@
+# Common flags for everyone
+build --incompatible_enable_cc_toolchain_resolution
+
+# Define shorthand for our architectures
+build:x86_64 --platforms=//platforms:kernel_x86_64
+build:aarch64 --platforms=//platforms:kernel_aarch64

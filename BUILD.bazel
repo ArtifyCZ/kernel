@@ -1,0 +1,103 @@
+load("@rules_cc//cc:defs.bzl", "cc_toolchain", "cc_toolchain_suite")
+load(":cc_toolchain_config.bzl", "cc_toolchain_config")
+
+package(default_visibility = ["//visibility:public"])
+
+exports_files(["BUILD.limine-protocol"])
+
+# 1. Generate the Configuration Info (The "Brain" of the toolchain)
+# This maps our freestanding flags to the actual actions.
+cc_toolchain_config(
+    name = "x86_64_kernel_config",
+    cpu = "x86_64",
+    gcc = "@llvm_toolchain_llvm//:bin/clang",
+    ld = "@llvm_toolchain_llvm//:bin/ld.lld",
+    ar = "@llvm_toolchain_llvm//:bin/llvm-ar",
+    nm = "@llvm_toolchain_llvm//:bin/llvm-nm",
+    objcopy = "@llvm_toolchain_llvm//:bin/llvm-objcopy",
+    objdump = "@llvm_toolchain_llvm//:bin/llvm-objdump",
+    strip = "@llvm_toolchain_llvm//:bin/llvm-strip",
+)
+
+cc_toolchain_config(
+    name = "aarch64_kernel_config",
+    cpu = "aarch64",
+    gcc = "@llvm_toolchain_llvm//:bin/clang",
+    ld = "@llvm_toolchain_llvm//:bin/ld.lld",
+    ar = "@llvm_toolchain_llvm//:bin/llvm-ar",
+    nm = "@llvm_toolchain_llvm//:bin/llvm-nm",
+    objcopy = "@llvm_toolchain_llvm//:bin/llvm-objcopy",
+    objdump = "@llvm_toolchain_llvm//:bin/llvm-objdump",
+    strip = "@llvm_toolchain_llvm//:bin/llvm-strip",
+)
+
+filegroup(
+    name = "llvm_all",
+    srcs = [
+        "@llvm_toolchain_llvm//:bin",
+        "@llvm_toolchain_llvm//:lib",
+        "@llvm_toolchain_llvm//:include",
+    ],
+)
+
+# 2. Define the CC Toolchain "Containers"
+# We point these to the files provided by the LLVM module in MODULE.bazel
+cc_toolchain(
+    name = "cc_toolchain_x86_64",
+    all_files = ":llvm_all",
+    ar_files = ":llvm_all",
+    as_files = ":llvm_all",
+    compiler_files = ":llvm_all",
+    linker_files = ":llvm_all",
+    dwp_files = ":llvm_all",
+    objcopy_files = ":llvm_all",
+    strip_files = ":llvm_all",
+    supports_param_files = 0,
+    toolchain_config = ":x86_64_kernel_config",
+    toolchain_identifier = "kernel-x86_64",
+)
+
+cc_toolchain(
+    name = "cc_toolchain_aarch64",
+    all_files = ":llvm_all",
+    ar_files = ":llvm_all",
+    as_files = ":llvm_all",
+    compiler_files = ":llvm_all",
+    linker_files = ":llvm_all",
+    dwp_files = ":llvm_all",
+    objcopy_files = ":llvm_all",
+    strip_files = ":llvm_all",
+    supports_param_files = 0,
+    toolchain_config = ":aarch64_kernel_config",
+    toolchain_identifier = "kernel-aarch64",
+)
+
+# 3. Register the High-Level Toolchains
+# This is what allows Bazel to pick the right one based on Platforms.
+toolchain(
+    name = "x86_64_kernel_toolchain",
+    exec_compatible_with = [
+        "@platforms//os:macos",
+        "@platforms//cpu:aarch64",
+    ],
+    target_compatible_with = [
+        "@platforms//cpu:x86_64",
+        "//platforms:kernel_mode",
+    ],
+    toolchain = ":cc_toolchain_x86_64",
+    toolchain_type = "@bazel_tools//tools/cpp:toolchain_type",
+)
+
+toolchain(
+    name = "aarch64_kernel_toolchain",
+    exec_compatible_with = [
+        "@platforms//os:macos",
+        "@platforms//cpu:aarch64",
+    ],
+    target_compatible_with = [
+        "@platforms//cpu:aarch64",
+        "//platforms:kernel_mode",
+    ],
+    toolchain = ":cc_toolchain_aarch64",
+    toolchain_type = "@bazel_tools//tools/cpp:toolchain_type",
+)

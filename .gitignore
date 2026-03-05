@@ -1,3 +1,5 @@
+.clwb/
+/bazel-*
 build/
 dependencies/
 local.mk
