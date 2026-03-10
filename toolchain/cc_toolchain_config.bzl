@@ -1,5 +1,5 @@
 load("@bazel_tools//tools/build_defs/cc:action_names.bzl", "ACTION_NAMES")
-load("@bazel_tools//tools/cpp:cc_toolchain_config_lib.bzl", "feature", "flag_group", "flag_set", "tool_path", "action_config", "tool")
+load("@bazel_tools//tools/cpp:cc_toolchain_config_lib.bzl", "action_config", "feature", "flag_group", "flag_set", "tool", "tool_path")
 load("@rules_cc//cc:defs.bzl", "cc_common")
 
 all_compile_actions = [
@@ -16,10 +16,6 @@ all_link_actions = [
 ]
 
 def _impl(ctx):
-    # Get the absolute path to ld.lld from the toolchain
-    # This will be used in the linker wrapper
-    ld_path = ctx.file.ld.path
-
     builtin_include_dirs = []
     if ctx.attr.cxx_builtin_include_directories:
         for f in ctx.attr.cxx_builtin_include_directories[DefaultInfo].files.to_list():
@@ -35,15 +31,14 @@ def _impl(ctx):
                     builtin_include_dirs.append(include_root)
 
     tool_paths = [
-        tool_path(name = "gcc", path = ctx.file.gcc.path),
-        # Point directly to ld.lld for linking
-        tool_path(name = "ld", path = ld_path),
-        tool_path(name = "ar", path = ctx.file.ar.path),
-        tool_path(name = "nm", path = ctx.file.nm.path),
-        tool_path(name = "objcopy", path = ctx.file.objcopy.path),
-        tool_path(name = "objdump", path = ctx.file.objdump.path),
-        tool_path(name = "strip", path = ctx.file.strip.path),
-        tool_path(name = "cpp", path = ctx.file.gcc.path),
+        tool_path(name = "gcc", path = "bin/clang_wrapper.sh"),
+        tool_path(name = "ld", path = "bin/ld_wrapper.sh"),
+        tool_path(name = "ar", path = "bin/ar_wrapper.sh"),
+        tool_path(name = "nm", path = "bin/nm_wrapper.sh"),
+        tool_path(name = "objcopy", path = "bin/objcopy_wrapper.sh"),
+        tool_path(name = "objdump", path = "bin/objdump_wrapper.sh"),
+        tool_path(name = "strip", path = "bin/strip_wrapper.sh"),
+        tool_path(name = "cpp", path = "bin/clang_wrapper.sh"),
     ]
 
     # Mandatory flags for a freestanding kernel
@@ -101,19 +96,39 @@ def _impl(ctx):
 
     action_configs = [
         action_config(
+            action_name = ACTION_NAMES.c_compile,
+            enabled = True,
+            tools = [tool(path = "bin/clang_wrapper.sh")],
+        ),
+        action_config(
+            action_name = ACTION_NAMES.cpp_compile,
+            enabled = True,
+            tools = [tool(path = "bin/clang_wrapper.sh")],
+        ),
+        action_config(
+            action_name = ACTION_NAMES.assemble,
+            enabled = True,
+            tools = [tool(path = "bin/clang_wrapper.sh")],
+        ),
+        action_config(
+            action_name = ACTION_NAMES.preprocess_assemble,
+            enabled = True,
+            tools = [tool(path = "bin/clang_wrapper.sh")],
+        ),
+        action_config(
             action_name = ACTION_NAMES.cpp_link_executable,
             enabled = True,
-            tools = [tool(path = ld_path)],
+            tools = [tool(path = "bin/ld_wrapper.sh")],
         ),
         action_config(
             action_name = ACTION_NAMES.cpp_link_dynamic_library,
             enabled = True,
-            tools = [tool(path = ld_path)],
+            tools = [tool(path = "bin/ld_wrapper.sh")],
         ),
         action_config(
             action_name = ACTION_NAMES.cpp_link_nodeps_dynamic_library,
             enabled = True,
-            tools = [tool(path = ld_path)],
+            tools = [tool(path = "bin/ld_wrapper.sh")],
         ),
     ]
 
@@ -138,12 +153,5 @@ cc_toolchain_config = rule(
     attrs = {
         "cpu": attr.string(mandatory = True),
         "cxx_builtin_include_directories": attr.label(),
-        "gcc": attr.label(allow_single_file = True),
-        "ld": attr.label(allow_single_file = True),
-        "ar": attr.label(allow_single_file = True),
-        "nm": attr.label(allow_single_file = True),
-        "objcopy": attr.label(allow_single_file = True),
-        "objdump": attr.label(allow_single_file = True),
-        "strip": attr.label(allow_single_file = True),
     },
 )

@@ -13,14 +13,20 @@ info = {k: subprocess.check_output(["bazel", "info", k]).decode().strip()
         for k in ["execution_root", "output_base", "workspace"]}
 
 print(f"Extracting Bazel truth for {args_cli.config}...")
-aquery_cmd = [
+aquery_kernel_cmd = [
     "bazel", "aquery", "kind(cc_.*, //kernel/...)",
     f"--config={args_cli.config}", "--output=jsonproto"
 ]
-data = json.loads(subprocess.check_output(aquery_cmd))
+kernel_data = json.loads(subprocess.check_output(aquery_kernel_cmd))
+aquery_init_cmd = [
+    "bazel", "aquery", "kind(cc_.*, //init/...)",
+    f"--config={args_cli.config}_user", "--output=jsonproto"
+]
+init_data = json.loads(subprocess.check_output(aquery_init_cmd))
+actions = kernel_data.get("actions", []) + init_data.get("actions", [])
 
 commands = []
-for action in data.get("actions", []):
+for action in actions:
     if "arguments" in action:
         args = action["arguments"]
         if any(x in args[0] for x in ["clang", "gcc"]):
