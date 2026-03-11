@@ -1,0 +1,19 @@
+alias(
+    name = "edk2-aarch64-code.fd.bz2",
+    actual = "pc-bios/edk2-aarch64-code.fd.bz2",
+)
+
+genrule(
+    name = "edk2-aarch64-code",
+    outs = ["edk2-aarch64-code.fd"],
+    srcs = [":edk2-aarch64-code.fd.bz2"],
+    cmd = """
+    cp $(location :edk2-aarch64-code.fd.bz2) edk2-aarch64-code.fd.bz2
+    bzip2 -dk edk2-aarch64-code.fd.bz2
+    cp edk2-aarch64-code.fd $@
+    """,
+    target_compatible_with = [
+        "@platforms//cpu:aarch64",
+    ],
+    visibility = ["//visibility:public"],
+)

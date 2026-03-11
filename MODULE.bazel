@@ -13,6 +13,8 @@ bazel_dep(name = "platforms", version = "1.0.0")
 bazel_dep(name = "toolchains_llvm", version = "1.6.0")
 bazel_dep(name = "rules_rust", version = "0.69.0")
 bazel_dep(name = "rules_rust_bindgen", version = "0.69.0")
+bazel_dep(name = "rules_pkg", version = "1.2.0")
+bazel_dep(name = "rules_shell", version = "0.6.1")
 
 rust = use_extension("@rules_rust//rust:extensions.bzl", "rust")
 rust.toolchain(
@@ -92,8 +94,8 @@ git_repository(
 
 git_repository(
     name = "limine-bootloader",
-    build_file = "BUILD.limine-bootloader",
     branch = "v10.x-binary",
+    build_file = "BUILD.limine-bootloader",
     remote = "https://github.com/limine-bootloader/limine.git",
 )
 
@@ -102,4 +104,12 @@ git_repository(
     build_file = "BUILD.limine-protocol",
     commit = "42e836e30242c2c14f889fd76c6f9a57b0c18ec2",
     remote = "https://github.com/limine-bootloader/limine-protocol.git",
+)
+
+git_repository(
+    name = "qemu",
+    build_file = "BUILD.qemu",
+    # v10.2.1 release
+    commit = "2d3df8abca265c9bcc9e438d691d561592060998",
+    remote = "https://github.com/qemu/qemu.git",
 )

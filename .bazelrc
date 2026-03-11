@@ -11,3 +11,6 @@ build:x86_64 --platform_suffix=x86_64
 build:x86_64_user --platform_suffix=x86_64_user
 build:aarch64 --platform_suffix=aarch64
 build:aarch64_user --platform_suffix=aarch64_user
+
+run:x86_64 --platform_suffix=x86_64
+run:aarch64 --platform_suffix=aarch64
