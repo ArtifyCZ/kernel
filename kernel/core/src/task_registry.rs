@@ -1,11 +1,11 @@
 use crate::interrupt_safe_spin_lock::{InterruptSafeSpinLock, InterruptSafeSpinLockGuard};
 use crate::platform::tasks::TaskContext;
+use crate::platform::virtual_memory_manager_context::VirtualMemoryManagerContext;
 use crate::task_id::TaskId;
 use alloc::boxed::Box;
 use alloc::collections::BTreeMap;
 use alloc::sync::Arc;
 use core::ops::{Deref, DerefMut};
-use crate::platform::virtual_memory_manager_context::VirtualMemoryManagerContext;
 
 #[derive(Default, Debug)]
 pub struct TaskRegistry(InterruptSafeSpinLock<TaskRegistryInner>);
@@ -21,6 +21,7 @@ pub enum TaskSpec {
         virtual_memory_manager_context: Arc<VirtualMemoryManagerContext>,
         user_stack_vaddr: usize,
         entrypoint_vaddr: usize,
+        arg: u64,
     },
     Kernel {
         function: unsafe extern "C" fn(arg: *mut core::ffi::c_void),
@@ -44,14 +45,28 @@ impl TaskRegistry {
 
     pub fn create_task(&self, spec: TaskSpec) -> TaskId {
         let id = TaskId::new();
-        self.insert(id, match spec {
-            TaskSpec::User { virtual_memory_manager_context, user_stack_vaddr, entrypoint_vaddr } => {
-                TaskContext::new_user(id, virtual_memory_manager_context, user_stack_vaddr, entrypoint_vaddr)
-            }
-            TaskSpec::Kernel { function, arg, kernel_stack_size } => {
-                TaskContext::new_kernel(id, function, arg, kernel_stack_size)
-            }
-        });
+        self.insert(
+            id,
+            match spec {
+                TaskSpec::User {
+                    virtual_memory_manager_context,
+                    user_stack_vaddr,
+                    entrypoint_vaddr,
+                    arg,
+                } => TaskContext::new_user(
+                    id,
+                    virtual_memory_manager_context,
+                    user_stack_vaddr,
+                    entrypoint_vaddr,
+                    arg,
+                ),
+                TaskSpec::Kernel {
+                    function,
+                    arg,
+                    kernel_stack_size,
+                } => TaskContext::new_kernel(id, function, arg, kernel_stack_size),
+            },
+        );
         id
     }
 
@@ -73,12 +88,18 @@ impl Deref for TaskGuard<'_> {
     type Target = TaskContext;
 
     fn deref(&self) -> &Self::Target {
-        self.inner.tasks.get(&self.id).expect("Non-existence should be checked before creating TaskGuard!")
+        self.inner
+            .tasks
+            .get(&self.id)
+            .expect("Non-existence should be checked before creating TaskGuard!")
     }
 }
 
 impl DerefMut for TaskGuard<'_> {
     fn deref_mut(&mut self) -> &mut Self::Target {
-        self.inner.tasks.get_mut(&self.id).expect("Non-existence should be checked before creating TaskGuard!")
+        self.inner
+            .tasks
+            .get_mut(&self.id)
+            .expect("Non-existence should be checked before creating TaskGuard!")
     }
 }

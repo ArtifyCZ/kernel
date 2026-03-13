@@ -37,6 +37,7 @@ impl TaskContext {
         user_ctx: Arc<VirtualMemoryManagerContext>,
         user_stack_vaddr: usize,
         entrypoint_vaddr: usize,
+        arg: u64,
     ) -> Self {
         let kernel_stack = unsafe {
             Pin::new_unchecked(Box::<[u8]>::new_zeroed_slice(TASK_KERNEL_STACK_SIZE).assume_init())
@@ -50,6 +51,7 @@ impl TaskContext {
                 entrypoint_vaddr,
                 user_stack_vaddr,
                 kernel_stack_top,
+                arg,
             ))
         };
 

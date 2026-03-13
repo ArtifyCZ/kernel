@@ -1,4 +1,5 @@
 #include "libs/libsyscall/syscalls.h"
+#include <stdint.h>
 
 int main(void);
 
@@ -11,9 +12,15 @@ static void print(const char *message) {
     sys_write(1, message, length);
 }
 
-__attribute__((noreturn)) void _start(void) {
+__attribute__((noreturn)) void _start(uint64_t arg) {
     sys_write(1, "1", 1);
     sys_write(1, "2", 1);
+    if (arg == 42) {
+        print("Received argument correctly!\n");
+    } else {
+        print("Argument was not passed correctly!\n");
+        sys_exit();
+    }
     print("Hello from _start!\n");
     print("Hello from _start again!\n");
     int exit_code = main();

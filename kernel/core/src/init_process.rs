@@ -89,10 +89,12 @@ pub fn spawn_init_process(scheduler: &Scheduler) {
     let entrypoint_vaddr = load_init_into_memory(&init_ctx);
     load_initrd_into_memory(&init_ctx);
     let stack_top_vaddr = allocate_init_stack(&init_ctx);
+    let arg = 42;
 
     scheduler.spawn(TaskSpec::User {
         virtual_memory_manager_context: Arc::new(init_ctx),
         user_stack_vaddr: stack_top_vaddr,
         entrypoint_vaddr,
+        arg,
     });
 }

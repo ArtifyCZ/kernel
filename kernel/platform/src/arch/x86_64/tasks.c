@@ -10,7 +10,8 @@ struct interrupt_frame *task_setup_user(
     const struct vmm_context *user_ctx,
     const uintptr_t entrypoint_vaddr,
     const uintptr_t user_stack_top,
-    const uintptr_t kernel_stack_top
+    const uintptr_t kernel_stack_top,
+    const uint64_t arg
 ) {
     const uintptr_t sp = kernel_stack_top - sizeof(struct interrupt_frame);
     struct interrupt_frame *frame = (struct interrupt_frame *) sp;
@@ -28,6 +29,8 @@ struct interrupt_frame *task_setup_user(
     frame->r11 = 0x202;
 
     frame->cr3 = user_ctx->root;
+
+    frame->rdi = arg;
 
     return (struct interrupt_frame *) sp;
 }

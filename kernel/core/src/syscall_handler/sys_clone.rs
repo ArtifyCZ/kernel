@@ -50,6 +50,7 @@ impl SyscallCommandHandler<SysCloneCommand> for SyscallHandler {
             virtual_memory_manager_context: vmm,
             user_stack_vaddr: *command.stack_pointer,
             entrypoint_vaddr: *command.entrypoint,
+            arg: 0, // @TODO: support passing argument to the new process
         });
         Ok(SyscallIntent::Return(pid))
     }

@@ -9,7 +9,8 @@ struct interrupt_frame *task_setup_user(
     const struct vmm_context *user_ctx,
     uintptr_t entrypoint_vaddr,
     uintptr_t user_stack_top,
-    uintptr_t kernel_stack_top
+    uintptr_t kernel_stack_top,
+    uint64_t arg
 );
 
 struct interrupt_frame *task_setup_kernel(
