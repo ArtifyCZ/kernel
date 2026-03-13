@@ -18,38 +18,72 @@ aquery_kernel_cmd = [
     f"--config={args_cli.config}", "--output=jsonproto"
 ]
 kernel_data = json.loads(subprocess.check_output(aquery_kernel_cmd))
-aquery_init_cmd = [
-    "bazel", "aquery", "kind(cc_.*, //init/...)",
+aquery_userspace_cmd = [
+    "bazel", "aquery", "kind(cc_.*, //...) - //kernel/...",
     f"--config={args_cli.config}_user", "--output=jsonproto"
 ]
-init_data = json.loads(subprocess.check_output(aquery_init_cmd))
-actions = kernel_data.get("actions", []) + init_data.get("actions", [])
+userspace_data = json.loads(subprocess.check_output(aquery_userspace_cmd))
+actions = kernel_data.get("actions", []) + userspace_data.get("actions", [])
 
 commands = []
 for action in actions:
     if "arguments" in action:
-        args = action["arguments"]
-        if any(x in args[0] for x in ["clang", "gcc"]):
-            # Find the source file relative path from the arguments
-            src_rel = next((a for a in args if a.endswith((".c", ".cpp", ".h"))), None)
+        args = list(action["arguments"]) # Copy the list
+        
+        # 1. Fix include paths in the arguments
+        new_args = []
+        i = 0
+        while i < len(args):
+            arg = args[i]
             
-            if src_rel:
-                # TRUTH MAPPING:
-                # If the file exists in our local workspace, use the local path.
-                # This ensures clangd matches the file you actually have open.
-                local_path = os.path.abspath(os.path.join(info["workspace"], src_rel))
-                
-                if os.path.exists(local_path):
-                    final_file_path = local_path
-                else:
-                    # Otherwise, it's a generated file or external header
-                    final_file_path = os.path.join(info["execution_root"], src_rel)
+            # 1. Handle space-separated flags: -I path, -iquote path, -isystem path
+            if arg in ["-I", "-isystem", "-iquote"] and i + 1 < len(args):
+                path = args[i + 1]
+                abs_path = os.path.join(info["execution_root"], path) if not os.path.isabs(path) else path
+                new_args.extend([arg, abs_path])
+                i += 2
+                continue
 
-                commands.append({
-                    "directory": info["workspace"], # Run clangd from workspace root
-                    "arguments": args,
-                    "file": final_file_path
-                })
+            # 2. Handle mashed flags: -Ipath, -iquotepath
+            # Note: -isystem usually isn't mashed, but we handle it just in case
+            found_mashed = False
+            for prefix in ["-I", "-iquote", "-isystem"]:
+                if arg.startswith(prefix) and len(arg) > len(prefix):
+                    path = arg[len(prefix):]
+                    abs_path = os.path.join(info["execution_root"], path) if not os.path.isabs(path) else path
+                    new_args.append(f"{prefix}{abs_path}")
+                    found_mashed = True
+                    break
+            
+            if found_mashed:
+                i += 1
+                continue
+
+            # 3. Handle everything else (including the source file and output paths)
+            new_args.append(arg)
+            i += 1
+        
+        if new_args and "clang_wrapper.sh" in new_args[0]:
+            # You can usually just replace it with 'clang' 
+            # as long as the rest of the flags are standard.
+            new_args[0] = "clang"
+
+        # 2. Find the file for the command
+        src_rel = next((a for a in new_args if a.endswith((".c", ".cpp", ".h"))), None)
+        
+        if src_rel:
+            # Use absolute path for the file key so clangd knows exactly which buffer it is
+            if not os.path.isabs(src_rel):
+                local_path = os.path.abspath(os.path.join(info["workspace"], src_rel))
+                final_file_path = local_path if os.path.exists(local_path) else os.path.join(info["execution_root"], src_rel)
+            else:
+                final_file_path = src_rel
+
+            commands.append({
+                "directory": info["workspace"],
+                "arguments": new_args, # Use the patched arguments
+                "file": final_file_path
+            })
 
 with open("compile_commands.json.tmp", "w") as f:
     json.dump(commands, f, indent=2)

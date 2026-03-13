@@ -1,4 +1,4 @@
-#include "syscalls.h"
+#include "libs/libsyscall/syscalls.h"
 #include "drivers/keyboard/keyboard.h"
 #include "drivers/serial/serial.h"
 
