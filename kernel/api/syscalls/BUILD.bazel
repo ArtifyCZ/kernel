@@ -3,7 +3,12 @@ load("@rules_cc//cc:cc_library.bzl", "cc_library")
 cc_library(
     name = "syscalls",
     srcs = ["syscalls_dummy.c"] + glob(["*.h"]),
-    hdrs = glob(["*.h"]),
+    hdrs = [
+        "syscall_err_list.h",
+        "syscall_errs.h",
+        "syscall_list.h",
+        "syscall_nums.h",
+    ],
     target_compatible_with = select({
         "@platforms//cpu:aarch64": [
             "@platforms//cpu:aarch64",

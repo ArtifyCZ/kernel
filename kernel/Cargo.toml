@@ -1,0 +1,7 @@
+[workspace]
+members = [
+    "api/init",
+    "api/syscalls",
+    "core",
+    "platform",
+]

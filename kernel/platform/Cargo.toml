@@ -1,0 +1,12 @@
+[package]
+name = "kernel_bindings_gen"
+build = "build.rs"
+
+[lib]
+path = "lib.rs"
+
+[dependencies]
+bitflags = "2.11.0"
+
+[build-dependencies]
+bindgen = "0.72"
