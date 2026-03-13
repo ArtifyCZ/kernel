@@ -4,11 +4,11 @@ ARCH=$2
 BIOS=$3
 DEBUG=$4
 QEMU="qemu-system-$ARCH"
-if [ "$DEBUG" = "debug" ]; then
-    QEMU="$QEMU -s -S"
-fi
-
 QEMUFLAGS=""
+
+if [ "$DEBUG" = "DEBUG" ]; then
+    QEMUFLAGS="$QEMUFLAGS -s -S"
+fi
 
 if [ "$ARCH" = "x86_64" ]; then
     QEMUFLAGS="$QEMUFLAGS -serial stdio -cdrom $IMG_PATH"

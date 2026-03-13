@@ -61,6 +61,11 @@ int main(void) {
     keyboard_init();
     print("Keyboard initialized!\n");
 
-    rest();
+    print("Trying to access initrd...\n");
+    char *initrd_data = (char *) 0x7FFFFFF00000ull;
+    print("Message: ");
+    print(initrd_data);
+    print(";\n");
+
     return 0;
 }

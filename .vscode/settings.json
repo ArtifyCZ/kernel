@@ -25,5 +25,6 @@
         "--compile-commands-dir=${workspaceFolder}/",
         "--query-driver=${workspaceFolder}/external/toolchains_llvm*/**/bin/clang*",
         "--background-index"
-    ]
+    ],
+    "rust-analyzer.debug.engine": "llvm-vs-code-extensions.lldb-dap",
 }

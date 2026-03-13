@@ -41,6 +41,7 @@ pkg_files(
     srcs = [
         "//kernel",
         ":init",
+        "initrd.txt",
         "Mik_8x16.psf",
     ],
     prefix = "/boot",
@@ -107,7 +108,20 @@ sh_binary(
         "@platforms//cpu:aarch64": [":kernel_img", "@qemu//:edk2-aarch64-code"],
     }),
     args = select({
-        "@platforms//cpu:x86_64": ["$(location :kernel_iso)", "x86_64", ""],
+        "@platforms//cpu:x86_64": ["$(location :kernel_iso)", "x86_64", "-"],
         "@platforms//cpu:aarch64": ["$(location :kernel_img)", "aarch64", "$(location @qemu//:edk2-aarch64-code)"],
     }) + ["NODEBUG"],
+)
+
+sh_binary(
+    name = "qemu-debug",
+    srcs = ["run_qemu.sh"],
+    data = select({
+        "@platforms//cpu:x86_64": [":kernel_iso"],
+        "@platforms//cpu:aarch64": [":kernel_img", "@qemu//:edk2-aarch64-code"],
+    }),
+    args = select({
+        "@platforms//cpu:x86_64": ["$(location :kernel_iso)", "x86_64", "-"],
+        "@platforms//cpu:aarch64": ["$(location :kernel_img)", "aarch64", "$(location @qemu//:edk2-aarch64-code)"],
+    }) + ["DEBUG"],
 )

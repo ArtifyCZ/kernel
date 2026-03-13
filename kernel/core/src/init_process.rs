@@ -4,20 +4,61 @@ use alloc::{ffi::CString, sync::Arc};
 
 use crate::platform::memory_layout::PAGE_FRAME_SIZE;
 use crate::platform::physical_memory_manager::PhysicalMemoryManager;
+use crate::platform::virtual_address_allocator::VirtualAddressAllocator;
 use crate::platform::virtual_memory_manager_context::VirtualMemoryMappingFlags;
 use crate::platform::virtual_page_address::VirtualPageAddress;
+use crate::platform::{
+    elf::Elf, modules::Modules, virtual_memory_manager_context::VirtualMemoryManagerContext,
+};
 use crate::scheduler::Scheduler;
 use crate::task_registry::TaskSpec;
-use crate::platform::{
-    elf::Elf, modules::Modules,
-    virtual_memory_manager_context::VirtualMemoryManagerContext,
-};
 
 fn load_init_into_memory(init_ctx: &VirtualMemoryManagerContext) -> usize {
     let init_elf_string = CString::from_str("init.elf").expect("Failed to create CString");
     let init_elf = unsafe { Modules::find(init_elf_string.as_c_str()) }.unwrap();
     let entrypoint_vaddr = unsafe { Elf::load(init_ctx, init_elf) }.unwrap();
     entrypoint_vaddr
+}
+
+fn load_initrd_into_memory(init_ctx: &VirtualMemoryManagerContext) {
+    let initrd_string = CString::from_str("initrd").expect("Failed to create CString");
+    const INITRD_VADDR: usize = 0x7FFFFFF00000usize; // arbitrary high virtual address for initrd
+    let initrd = unsafe { Modules::find(CString::from_str("initrd").unwrap().as_c_str()) }
+        .expect("Initrd module not found");
+    // Map the pages for initrd into the virtual memory and copy the data
+    let initrd_size = initrd.len();
+    let num_pages = (initrd_size + PAGE_FRAME_SIZE - 1) / PAGE_FRAME_SIZE;
+    for i in 0..num_pages {
+        unsafe {
+            let page_vaddr = INITRD_VADDR + i * PAGE_FRAME_SIZE;
+            let page_phys = PhysicalMemoryManager::alloc_frame().unwrap();
+            let kernel_vaddr = VirtualAddressAllocator::alloc_range(PAGE_FRAME_SIZE);
+            init_ctx
+                .map_page(
+                    VirtualPageAddress::new(page_vaddr).unwrap(),
+                    page_phys,
+                    VirtualMemoryMappingFlags::PRESENT
+                        | VirtualMemoryMappingFlags::USER
+                        | VirtualMemoryMappingFlags::WRITE,
+                )
+                .unwrap();
+            VirtualMemoryManagerContext::get_kernel_context().map_page(
+                kernel_vaddr,
+                page_phys,
+                VirtualMemoryMappingFlags::PRESENT | VirtualMemoryMappingFlags::WRITE,
+            );
+            // Copy the data from the initrd module to the mapped page
+            let src_ptr = initrd.as_ptr().add(i * PAGE_FRAME_SIZE);
+            let dst_ptr = kernel_vaddr.start().inner() as *mut u8;
+            let remaining = initrd_size - (i * PAGE_FRAME_SIZE);
+            let to_copy = core::cmp::min(PAGE_FRAME_SIZE, remaining);
+            core::ptr::copy_nonoverlapping(src_ptr, dst_ptr, to_copy);
+            // Zero the rest of the page if it's a partial copy
+            if to_copy < PAGE_FRAME_SIZE {
+                core::ptr::write_bytes(dst_ptr.add(to_copy), 0, PAGE_FRAME_SIZE - to_copy);
+            }
+        }
+    }
 }
 
 fn allocate_init_stack(init_ctx: &VirtualMemoryManagerContext) -> usize {
@@ -46,6 +87,7 @@ fn allocate_init_stack(init_ctx: &VirtualMemoryManagerContext) -> usize {
 pub fn spawn_init_process(scheduler: &Scheduler) {
     let init_ctx = unsafe { VirtualMemoryManagerContext::create() };
     let entrypoint_vaddr = load_init_into_memory(&init_ctx);
+    load_initrd_into_memory(&init_ctx);
     let stack_top_vaddr = allocate_init_stack(&init_ctx);
 
     scheduler.spawn(TaskSpec::User {

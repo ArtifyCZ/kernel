@@ -30,7 +30,7 @@ fi
 
 # Run it. Redirect stderr to the console (so you see progress) 
 # and stdout to the file (for parsing).
-"${bazel_cmd[@]}" > "${tmp_output}" 2> >(tee /dev/stderr >&2)
+"${bazel_cmd[@]}" --bazel_arg=--noshow_progress > "${tmp_output}"
 
 python3 - "${tmp_output}" "${tmp_json}" <<'PY'
 import json
@@ -43,31 +43,34 @@ dst = pathlib.Path(sys.argv[2])
 project = None
 try:
     content = src.read_text()
-    for raw_line in content.splitlines():
-        line = raw_line.strip()
-        if not line.startswith("{"):
-            continue
+    # Bazel 7+ Bzlmod output can sometimes be one giant blob or separate lines.
+    # We try parsing lines first, then the whole file.
+    lines = content.splitlines()
+    for line in lines:
+        line = line.strip()
+        if not line or not line.startswith('{'): continue
         try:
             obj = json.loads(line)
             if obj.get("kind") == "finished" and "project" in obj:
                 project = obj["project"]
-                break
-        except json.JSONDecodeError:
-            continue
+        except: continue
 except Exception as e:
-    print(f"Extraction error: {e}", file=sys.stderr)
+    print(f"Python error: {e}", file=sys.stderr)
 
-if project is None:
+if project:
+    with open(dst, 'w') as f:
+        json.dump(project, f, indent=2)
+    sys.exit(0)
+else:
+    print("Could not find project in output.", file=sys.stderr)
     sys.exit(1)
-
-dst.write_text(json.dumps(project, indent=2) + "\n")
 PY
 
-if [ -f "${tmp_json}" ] && jq . "${tmp_json}" >/dev/null 2>&1; then
+# Simplified Bash check: if Python exited 0, the file is good.
+if [ $? -eq 0 ] && [ -s "${tmp_json}" ]; then
     mv "${tmp_json}" "${output_path}"
-    # Use stderr for the success message to keep the terminal clean
     echo "LSP Sync: rust-project.json updated successfully." >&2
 else
-    echo "Error: Failed to generate a valid rust-project.json" >&2
+    echo "Error: Python failed to extract project or file is empty." >&2
     exit 1
 fi
