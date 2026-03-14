@@ -19,6 +19,15 @@ platform_binary_wrapper(
     target = "//init",
 )
 
+platform_binary_wrapper(
+    name = "hello_world",
+    platform = select({
+        "@platforms//cpu:x86_64": "//platforms:user_x86_64",
+        "@platforms//cpu:aarch64": "//platforms:user_aarch64",
+    }),
+    target = "//hello_world:hello_world",
+)
+
 pkg_files(
     name = "limine_bootloader",
     srcs = [
@@ -62,6 +71,7 @@ pkg_tar(
     name = "initrd_tar",
     srcs = [
         "initrd_message.txt",
+        ":hello_world",
     ],
     mode = "0644",
     out = "initrd.tar",

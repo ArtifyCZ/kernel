@@ -1,26 +1,32 @@
-mod sys_clone;
 mod sys_exit;
-mod sys_mmap;
+mod sys_irq_unmask;
+mod sys_irq_wait;
+mod sys_mmap_dev;
+mod sys_proc_create;
+mod sys_proc_mmap;
+mod sys_proc_mprot;
+mod sys_proc_munmap;
 mod sys_write;
 mod user_ptr;
 mod user_slice;
-mod sys_irq_wait;
-mod sys_irq_unmask;
-mod sys_mmap_dev;
+mod sys_proc_spawn;
 
 use crate::platform::syscalls::{
     SyscallContext, SyscallError, SyscallIntent, SyscallReturnValue, SyscallReturnable, syscall_num,
 };
 use crate::scheduler::Scheduler;
-use crate::syscall_handler::sys_clone::SysCloneCommand;
 use crate::syscall_handler::sys_exit::SysExitCommand;
-use crate::syscall_handler::sys_mmap::SysMmapCommand;
-use crate::syscall_handler::sys_write::SysWriteCommand;
-use crate::task_registry::TaskRegistry;
-use alloc::boxed::Box;
 use crate::syscall_handler::sys_irq_unmask::SysIrqUnmaskCommand;
 use crate::syscall_handler::sys_irq_wait::SysIrqWaitCommand;
 use crate::syscall_handler::sys_mmap_dev::SysMmapDevCommand;
+use crate::syscall_handler::sys_proc_create::SysProcCreateCommand;
+use crate::syscall_handler::sys_proc_mmap::SysProcMmapCommand;
+use crate::syscall_handler::sys_proc_mprot::SysProcMprotCommand;
+use crate::syscall_handler::sys_proc_munmap::SysProcMunmapCommand;
+use crate::syscall_handler::sys_write::SysWriteCommand;
+use crate::task_registry::TaskRegistry;
+use alloc::boxed::Box;
+use crate::syscall_handler::sys_proc_spawn::SysProcSpawnCommand;
 
 macro_rules! define_syscall_request {
     ($name:ident, { $(
@@ -68,11 +74,14 @@ define_syscall_request!(
     {
         syscall_num::SYS_EXIT => Exit: SysExitCommand,
         syscall_num::SYS_WRITE => Write: SysWriteCommand,
-        syscall_num::SYS_CLONE => Clone: SysCloneCommand,
-        syscall_num::SYS_MMAP => Mmap: SysMmapCommand,
         syscall_num::SYS_IRQ_WAIT => IrqWait: SysIrqWaitCommand,
         syscall_num::SYS_IRQ_UNMASK => IrqUnmask: SysIrqUnmaskCommand,
         syscall_num::SYS_MMAP_DEV => MmapDev: SysMmapDevCommand,
+        syscall_num::SYS_PROC_CREATE => ProcCreate: SysProcCreateCommand,
+        syscall_num::SYS_PROC_MMAP => ProcMmap: SysProcMmapCommand,
+        syscall_num::SYS_PROC_MPROT => ProcMprot: SysProcMprotCommand,
+        syscall_num::SYS_PROC_MUNMAP => ProcMunmap: SysProcMunmapCommand,
+        syscall_num::SYS_PROC_SPAWN => ProcSpawn: SysProcSpawnCommand,
     },
 );
 

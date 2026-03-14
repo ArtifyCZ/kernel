@@ -9,6 +9,7 @@ mod bindings {
 pub(super) const VMM_PAGE_SIZE: usize = bindings::VMM_PAGE_SIZE as usize;
 
 bitflags! {
+    #[derive(Debug, Copy, Clone)]
     pub struct VirtualMemoryMappingFlags: u32 {
         const PRESENT = bindings::vmm_flags_t_VMM_FLAG_PRESENT;
         const WRITE = bindings::vmm_flags_t_VMM_FLAG_WRITE;
@@ -63,6 +64,16 @@ impl VirtualMemoryManagerContext {
                 physical_address.inner(),
                 flags.bits(),
             )
+        } {
+            Ok(())
+        } else {
+            Err(())
+        }
+    }
+
+    pub unsafe fn unmap_page(&self, virtual_page_address: VirtualPageAddress) -> Result<(), ()> {
+        if unsafe {
+            bindings::vmm_unmap_page(&self.context, virtual_page_address.inner())
         } {
             Ok(())
         } else {

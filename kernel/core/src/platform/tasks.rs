@@ -3,6 +3,7 @@ use crate::platform::syscalls::{SyscallError, SyscallReturnValue, SyscallReturna
 use crate::platform::tasks::bindings::vmm_context;
 use crate::platform::virtual_memory_manager_context::VirtualMemoryManagerContext;
 use alloc::boxed::Box;
+use alloc::collections::BTreeMap;
 use alloc::sync::Arc;
 use core::ffi::c_void;
 use core::pin::Pin;
@@ -12,7 +13,7 @@ mod bindings {
     include_bindings!("tasks.rs");
 }
 
-pub const TASK_KERNEL_STACK_SIZE: usize = 4 * PAGE_FRAME_SIZE;
+pub const TASK_KERNEL_STACK_SIZE: usize = 8 * PAGE_FRAME_SIZE;
 
 #[derive(Debug, Copy, Clone, PartialEq)]
 #[repr(transparent)]
@@ -28,6 +29,8 @@ pub struct TaskContext {
     user_ctx: Option<Arc<VirtualMemoryManagerContext>>,
     kernel_stack: Pin<Box<[u8]>>,
     state: TaskFrame,
+    proc_handles: BTreeMap<u64, Arc<VirtualMemoryManagerContext>>,
+    next_handle: u64,
     pending_syscall_return_value: Option<Result<SyscallReturnValue, SyscallError>>,
 }
 
@@ -60,6 +63,8 @@ impl TaskContext {
             user_ctx: Some(user_ctx),
             kernel_stack,
             state,
+            proc_handles: BTreeMap::new(),
+            next_handle: 1,
             pending_syscall_return_value: None,
         }
     }
@@ -88,6 +93,8 @@ impl TaskContext {
             user_ctx: None,
             kernel_stack,
             state,
+            proc_handles: BTreeMap::new(),
+            next_handle: 1,
             pending_syscall_return_value: None,
         }
     }
@@ -116,6 +123,19 @@ impl TaskContext {
             }
         }
         frame
+    }
+
+    pub fn add_proc_handle(&mut self, vmm: Arc<VirtualMemoryManagerContext>) -> u64 {
+        // @TODO: use newtype pattern for handles
+        // @TODO: probably extract the address space (VMM) and proc handles (capabilities) to ProcessControlBlock or a similar struct
+        let handle = self.next_handle;
+        self.next_handle += 1;
+        self.proc_handles.insert(handle, vmm);
+        handle
+    }
+
+    pub fn get_proc_handle(&self, handle: u64) -> Option<&Arc<VirtualMemoryManagerContext>> {
+        self.proc_handles.get(&handle)
     }
 }
 

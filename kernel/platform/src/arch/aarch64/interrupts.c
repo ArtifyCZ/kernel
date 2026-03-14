@@ -159,6 +159,9 @@ uintptr_t handle_sync_exception(struct interrupt_frame *frame) {
     emergency_console_print("FAR_EL1 (Addr): ");
     emergency_console_print_hex_u64(far);
     emergency_console_println("");
+    emergency_console_print("SP_EL0 (Addr): ");
+    emergency_console_print_hex_u64(frame->sp_el0);
+    emergency_console_println("");
 
     switch (ec) {
         case EC_DATA_ABORT_SAME:

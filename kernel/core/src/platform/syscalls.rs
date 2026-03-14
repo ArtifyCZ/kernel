@@ -64,8 +64,6 @@ macro_rules! wrap_syscall {
 
 wrap_syscall!(sys_exit, syscall_num::SYS_EXIT);
 wrap_syscall!(sys_write, syscall_num::SYS_WRITE, fd: i32, user_buf: u64, count: usize);
-wrap_syscall!(sys_clone, syscall_num::SYS_CLONE, flags: u64, stack_pointer: usize, entrypoint: usize);
-wrap_syscall!(sys_mmap, syscall_num::SYS_MMAP, addr: usize, length: usize, prot: u32, flags: u32);
 
 pub struct SyscallContext<'a> {
     pub task_frame: &'a TaskFrame,
@@ -99,6 +97,13 @@ pub trait SyscallReturnable {
 impl SyscallReturnable for () {
     fn into_return_value(self) -> SyscallReturnValue {
         SyscallReturnValue(0)
+    }
+}
+
+/// @TODO: Make u64 not returnable (should use the newtype pattern instead)
+impl SyscallReturnable for u64 {
+    fn into_return_value(self) -> SyscallReturnValue {
+        SyscallReturnValue(self)
     }
 }
 
