@@ -2,4 +2,3 @@
 
 - Bazel
 - Qemu
-- Nasm

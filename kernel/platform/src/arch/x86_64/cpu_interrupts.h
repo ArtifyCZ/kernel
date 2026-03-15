@@ -5,7 +5,7 @@
 #include "interrupts.h"
 
 struct interrupt_frame {
-    // Pushed LAST in NASM (lowest address)
+    // Pushed LAST in ASM (lowest address)
     uint64_t cr3;
 
     uint64_t r15, r14, r13, r12, r11, r10, r9, r8;

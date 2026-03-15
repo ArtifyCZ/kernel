@@ -2,16 +2,6 @@ load("@rules_cc//cc:cc_library.bzl", "cc_library")
 
 package(default_visibility = ["//visibility:public"])
 
-[
-    genrule(
-        name = "asm_" + f.split("/")[-1].replace(".asm", ""),
-        srcs = [f],
-        outs = [f.split("/")[-1] + ".o"],
-        cmd = "nasm -f elf64 $< -o $@",
-    )
-    for f in glob(["src/arch/x86_64/*.asm"])
-]
-
 cc_library(
     name = "kernel_platform",
     srcs = glob([
@@ -20,10 +10,8 @@ cc_library(
         "@platforms//cpu:x86_64": glob([
             "src/arch/x86_64/*.c",
             "src/arch/x86_64/*.h",
-        ]) + [
-            ":asm_interrupt_entry",
-            ":asm_syscall_entry",
-        ],
+            "src/arch/x86_64/*.S",
+        ]),
         "@platforms//cpu:aarch64": glob([
             "src/arch/aarch64/*.c",
             "src/arch/aarch64/*.h",

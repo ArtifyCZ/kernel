@@ -41,7 +41,6 @@ static void *g_irq_handler_priv;
 static uint8_t g_interrupt_disable_nesting = 0;
 
 void interrupts_init(void) {
-    // This table must be defined in your NASM file (see below)
     extern uint64_t interrupt_stubs[];
     g_irq_handler = NULL;
     g_irq_handler_priv = NULL;
@@ -158,7 +157,7 @@ static void dump_frame(struct interrupt_frame *frame) {
     emergency_console_println("---------------------");
 }
 
-// The C dispatcher called from NASM
+// The C dispatcher called from ASM
 // Returns a pointer to a stack the assembly code should switch to
 // If frame pointer == returned address, then the interrupt returns exactly where it was interrupted
 uintptr_t x86_64_interrupt_dispatcher(struct interrupt_frame *frame) {
