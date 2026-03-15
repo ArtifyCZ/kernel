@@ -10,11 +10,8 @@
 #include "msr.h"
 #include "psf.h"
 #include "terminal.h"
-#include "virtual_memory_manager.h"
 
 void platform_init(const struct platform_config *config) {
-    vmm_init(config->hhdm_offset);
-
     const uintptr_t serial_device_base = 0x3f8;
     early_console_init(serial_device_base);
     early_console_println("Early console initialized!");
