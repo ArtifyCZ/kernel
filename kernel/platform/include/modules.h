@@ -1,14 +1,7 @@
-//
-// Created by artify on 2/4/26.
-//
+// NOTE THAT THE IMPLEMENTATION HAS BEEN MOVED TO RUST!
 
-#ifndef KERNEL_2026_01_31_MODULES_H
-#define KERNEL_2026_01_31_MODULES_H
+#pragma once
 
 #include <limine.h>
 
-void modules_init(struct limine_module_response *modules);
-
 const struct limine_file *module_find(const char *associated_string);
-
-#endif //KERNEL_2026_01_31_MODULES_H

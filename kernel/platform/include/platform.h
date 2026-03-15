@@ -4,7 +4,6 @@
 
 struct platform_config {
     struct limine_framebuffer *framebuffer;
-    struct limine_module_response *modules;
     void *rsdp_address;
 };
 

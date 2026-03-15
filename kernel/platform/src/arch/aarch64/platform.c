@@ -11,8 +11,6 @@
 void platform_init(const struct platform_config *config) {
     (void) config;
 
-    modules_init(config->modules);
-
     const struct limine_file *font = module_find("kernel-font.psf");
 
     if (font != NULL) {

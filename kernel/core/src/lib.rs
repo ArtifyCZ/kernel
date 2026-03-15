@@ -54,6 +54,7 @@ use scheduler::Scheduler;
 use ticker::Ticker;
 use crate::elf::Elf;
 use crate::platform::early_console::EarlyConsole;
+use crate::platform::modules::Modules;
 use crate::platform::virtual_address_allocator::VirtualAddressAllocator;
 use crate::platform::virtual_memory_manager::VirtualMemoryManager;
 
@@ -109,7 +110,8 @@ fn main(
         EarlyConsole::init(SERIAL_BASE);
         println!("\nEarly console initialized!\n");
         println!("Booting...");
-        Platform::init(framebuffer, modules, rsdp_address);
+        Modules::init(modules);
+        Platform::init(framebuffer, rsdp_address);
         logging::enable_terminal();
         Interrupts::init();
 
