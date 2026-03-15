@@ -1,32 +1,11 @@
 #include "platform.h"
 
-#include <stddef.h>
-
 #include "acpi.h"
-#include "boot.h"
 #include "early_console.h"
 #include "gdt.h"
-#include "modules.h"
 #include "msr.h"
-#include "psf.h"
-#include "terminal.h"
 
 void platform_init(const struct platform_config *config) {
-    const struct limine_file *font = module_find("kernel-font.psf");
-
-    if (font != NULL) {
-        psf_init(font->address, font->size, config->framebuffer);
-        terminal_init(config->framebuffer);
-    } else {
-        early_console_println("Could not find kernel-font.psf!");
-    }
-
-    terminal_set_foreground_color(0xD4DBDF);
-    terminal_set_background_color(0x04121B);
-    terminal_clear();
-
-    terminal_println("Hello world!");
-
     early_console_println("Setting up GDT...");
     gdt_init();
     early_console_println("GDT initialized!");

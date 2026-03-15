@@ -22,6 +22,7 @@ use crate::platform::platform::Platform;
 use alloc::boxed::Box;
 use alloc::string::ToString;
 use core::ffi::c_void;
+use core::ptr::NonNull;
 
 #[panic_handler]
 #[cfg(not(test))]
@@ -109,8 +110,10 @@ fn main(
         const SERIAL_BASE: usize = 0x9000000;
         EarlyConsole::init(SERIAL_BASE);
         println!("\nEarly console initialized!\n");
-        println!("Booting...");
         Modules::init(modules);
+        Terminal::init(NonNull::new(framebuffer).unwrap());
+        println!("Terminal initialized!");
+        println!("Booting...");
         Platform::init(framebuffer, rsdp_address);
         logging::enable_terminal();
         Interrupts::init();

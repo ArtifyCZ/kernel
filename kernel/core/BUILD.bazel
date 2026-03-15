@@ -108,6 +108,7 @@ rust_static_library(
         ":syscalls_rust",
         "//kernel/api/init:init_contract_rust",
         "@crates//:bitflags",
+        "@crates//:eclipse_framebuffer",
         "@crates//:thiserror-no-std",
     ],
 )

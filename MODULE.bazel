@@ -59,6 +59,10 @@ crates.spec(
     version = "2.11.0",
 )
 crates.spec(
+    package = "eclipse_framebuffer",
+    version = "0.1.0",
+)
+crates.spec(
     package = "thiserror-no-std",
     version = "2.0.2",
 )
