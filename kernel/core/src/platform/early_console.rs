@@ -1,25 +1,23 @@
-mod bindings {
-    include_bindings!("early_console.rs");
-}
+use kernel_bindings_gen::{early_console_disable, early_console_init, early_console_write};
 
 pub struct EarlyConsole;
 
 impl EarlyConsole {
     pub unsafe fn init(serial_base: usize) {
         unsafe {
-            kernel_bindings_gen::early_console_init(serial_base);
+            early_console_init(serial_base);
         }
     }
 
     pub unsafe fn disable() {
         unsafe {
-            bindings::early_console_disable();
+            early_console_disable();
         }
     }
 
     pub unsafe fn write(byte: u8) {
         unsafe {
-            bindings::early_console_write(byte);
+            early_console_write(byte);
         }
     }
 

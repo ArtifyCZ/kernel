@@ -1,10 +1,3 @@
-macro_rules! include_bindings {
-    ($file:expr) => {
-        pub use kernel_bindings_gen::*;
-        pub use syscalls_rust::*;
-    };
-}
-
 pub mod early_console;
 pub mod emergency_console;
 pub mod interrupts;

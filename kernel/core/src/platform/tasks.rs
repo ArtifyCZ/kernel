@@ -1,24 +1,23 @@
 use crate::platform::memory_layout::PAGE_FRAME_SIZE;
 use crate::platform::syscalls::{SyscallError, SyscallReturnValue, SyscallReturnable};
-use crate::platform::tasks::bindings::vmm_context;
 use crate::platform::virtual_memory_manager_context::VirtualMemoryManagerContext;
+use crate::task_id::TaskId;
 use alloc::boxed::Box;
 use alloc::collections::BTreeMap;
 use alloc::sync::Arc;
 use core::ffi::c_void;
 use core::pin::Pin;
-use crate::task_id::TaskId;
-
-mod bindings {
-    include_bindings!("tasks.rs");
-}
+use kernel_bindings_gen::{
+    interrupt_frame, task_get_current_id, task_prepare_switch, task_set_syscall_return_value,
+    task_setup_kernel, task_setup_user, vmm_context,
+};
 
 pub const TASK_KERNEL_STACK_SIZE: usize = 8 * PAGE_FRAME_SIZE;
 
 #[derive(Debug, Copy, Clone, PartialEq)]
 #[repr(transparent)]
 #[must_use]
-pub struct TaskFrame(pub(super) *mut bindings::interrupt_frame);
+pub struct TaskFrame(pub(super) *mut interrupt_frame);
 
 unsafe impl Send for TaskFrame {}
 
@@ -49,7 +48,7 @@ impl TaskContext {
         let state = unsafe {
             let user_ctx_ptr: *const vmm_context = core::mem::transmute(user_ctx.inner());
             let kernel_stack_top = kernel_stack.as_ptr_range().end as usize;
-            TaskFrame(bindings::task_setup_user(
+            TaskFrame(task_setup_user(
                 user_ctx_ptr,
                 entrypoint_vaddr,
                 user_stack_vaddr,
@@ -81,11 +80,7 @@ impl TaskContext {
 
         let state = unsafe {
             let kernel_stack_top = kernel_stack.as_ptr_range().end as usize;
-            TaskFrame(bindings::task_setup_kernel(
-                kernel_stack_top,
-                Some(function),
-                arg,
-            ))
+            TaskFrame(task_setup_kernel(kernel_stack_top, Some(function), arg))
         };
 
         Self {
@@ -114,7 +109,7 @@ impl TaskContext {
     pub fn activate(&mut self) -> TaskFrame {
         let kernel_stack_top = self.kernel_stack.as_ptr_range().end as usize;
         unsafe {
-            bindings::task_prepare_switch(kernel_stack_top, self.task_id.get());
+            task_prepare_switch(kernel_stack_top, self.task_id.get());
         }
         let mut frame = self.state;
         if let Some(value) = self.pending_syscall_return_value.take() {
@@ -142,9 +137,7 @@ impl TaskContext {
 impl TaskId {
     /// Returns the current task id of the current CPU (the CPU core this function is invoked on).
     pub fn get_current() -> Option<Self> {
-        let task_id = unsafe {
-            bindings::task_get_current_id()
-        };
+        let task_id = unsafe { task_get_current_id() };
         if task_id == 0 {
             None
         } else {
@@ -154,13 +147,16 @@ impl TaskId {
 }
 
 impl TaskFrame {
-    pub(super) unsafe fn set_syscall_return_value(&mut self, value: Result<SyscallReturnValue, SyscallError>) {
+    pub(super) unsafe fn set_syscall_return_value(
+        &mut self,
+        value: Result<SyscallReturnValue, SyscallError>,
+    ) {
         unsafe {
             let (error_code, value) = match value {
                 Ok(value) => (SyscallError::SYS_SUCCESS, value),
                 Err(error_code) => (error_code, ().into_return_value()),
             };
-            bindings::task_set_syscall_return_value(self.0, error_code as u64, value.0);
+            task_set_syscall_return_value(self.0, error_code as u64, value.0);
         }
     }
 }

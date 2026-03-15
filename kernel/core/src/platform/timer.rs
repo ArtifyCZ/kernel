@@ -1,18 +1,14 @@
 use crate::platform::tasks::TaskFrame;
 use alloc::boxed::Box;
 use core::ffi::c_void;
-use crate::platform::timer::bindings::interrupt_frame;
-
-pub(super) mod bindings {
-    include_bindings!("timer.rs");
-}
+use kernel_bindings_gen::{interrupt_frame, timer_get_ticks, timer_init, timer_set_tick_handler};
 
 pub struct Timer;
 
 impl Timer {
     pub unsafe fn init(freq_hz: u32) {
         unsafe {
-            bindings::timer_init(freq_hz);
+            timer_init(freq_hz);
         }
     }
 
@@ -41,11 +37,11 @@ impl Timer {
 
         unsafe {
             let f = Box::into_raw(Box::new(f));
-            bindings::timer_set_tick_handler(Some(trampoline::<F>), f.cast());
+            timer_set_tick_handler(Some(trampoline::<F>), f.cast());
         }
     }
 
     pub fn get_ticks() -> u64 {
-        unsafe { bindings::timer_get_ticks() }
+        unsafe { timer_get_ticks() }
     }
 }

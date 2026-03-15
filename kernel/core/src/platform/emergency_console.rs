@@ -1,6 +1,4 @@
-mod bindings {
-    include_bindings!("emergency_console.rs");
-}
+use kernel_bindings_gen::{emergency_console_init, emergency_console_write};
 
 pub struct EmergencyConsole;
 
@@ -19,13 +17,13 @@ impl EmergencyConsole {
         }
 
         unsafe {
-            bindings::emergency_console_init(serial_base);
+            emergency_console_init(serial_base);
         }
     }
 
     pub unsafe fn write(byte: u8) {
         unsafe {
-            bindings::emergency_console_write(byte);
+            emergency_console_write(byte);
         }
     }
 

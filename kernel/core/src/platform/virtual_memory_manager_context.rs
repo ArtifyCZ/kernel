@@ -1,35 +1,37 @@
 use crate::platform::physical_page_frame::{PhysicalPageFrame, PhysicalPageFrameParseError};
 use crate::platform::virtual_page_address::VirtualPageAddress;
 use bitflags::bitflags;
+use kernel_bindings_gen::{
+    g_kernel_context, vmm_context, vmm_context_create, vmm_flags_t_VMM_FLAG_DEVICE,
+    vmm_flags_t_VMM_FLAG_EXEC, vmm_flags_t_VMM_FLAG_NOCACHE, vmm_flags_t_VMM_FLAG_PRESENT,
+    vmm_flags_t_VMM_FLAG_USER, vmm_flags_t_VMM_FLAG_WRITE, vmm_map_page, vmm_translate,
+    vmm_unmap_page,
+};
 
-mod bindings {
-    include_bindings!("virtual_memory_manager.rs");
-}
-
-pub(super) const VMM_PAGE_SIZE: usize = bindings::VMM_PAGE_SIZE as usize;
+pub(super) const VMM_PAGE_SIZE: usize = kernel_bindings_gen::VMM_PAGE_SIZE as usize;
 
 bitflags! {
     #[derive(Debug, Copy, Clone)]
     pub struct VirtualMemoryMappingFlags: u32 {
-        const PRESENT = bindings::vmm_flags_t_VMM_FLAG_PRESENT;
-        const WRITE = bindings::vmm_flags_t_VMM_FLAG_WRITE;
-        const USER = bindings::vmm_flags_t_VMM_FLAG_USER;
-        const EXEC = bindings::vmm_flags_t_VMM_FLAG_EXEC;
-        const DEVICE = bindings::vmm_flags_t_VMM_FLAG_DEVICE;
-        const NO_CACHE = bindings::vmm_flags_t_VMM_FLAG_NOCACHE;
+        const PRESENT = vmm_flags_t_VMM_FLAG_PRESENT;
+        const WRITE = vmm_flags_t_VMM_FLAG_WRITE;
+        const USER = vmm_flags_t_VMM_FLAG_USER;
+        const EXEC = vmm_flags_t_VMM_FLAG_EXEC;
+        const DEVICE = vmm_flags_t_VMM_FLAG_DEVICE;
+        const NO_CACHE = vmm_flags_t_VMM_FLAG_NOCACHE;
     }
 }
 
 #[derive(Debug)]
 pub struct VirtualMemoryManagerContext {
-    context: bindings::vmm_context,
+    context: vmm_context,
 }
 
 impl VirtualMemoryManagerContext {
     pub unsafe fn get_kernel_context() -> VirtualMemoryManagerContext {
         unsafe {
             VirtualMemoryManagerContext {
-                context: bindings::g_kernel_context,
+                context: g_kernel_context,
             }
         }
     }
@@ -37,16 +39,16 @@ impl VirtualMemoryManagerContext {
     pub unsafe fn create() -> VirtualMemoryManagerContext {
         unsafe {
             VirtualMemoryManagerContext {
-                context: bindings::vmm_context_create(),
+                context: vmm_context_create(),
             }
         }
     }
 
-    pub(super) unsafe fn inner(&self) -> &bindings::vmm_context {
+    pub(super) unsafe fn inner(&self) -> &vmm_context {
         &self.context
     }
 
-    pub(super) unsafe fn inner_mut(&mut self) -> &mut bindings::vmm_context {
+    pub(super) unsafe fn inner_mut(&mut self) -> &mut vmm_context {
         &mut self.context
     }
 
@@ -58,7 +60,7 @@ impl VirtualMemoryManagerContext {
         flags: VirtualMemoryMappingFlags,
     ) -> Result<(), ()> {
         if unsafe {
-            bindings::vmm_map_page(
+            vmm_map_page(
                 &self.context,
                 virtual_page_address.inner(),
                 physical_address.inner(),
@@ -72,9 +74,7 @@ impl VirtualMemoryManagerContext {
     }
 
     pub unsafe fn unmap_page(&self, virtual_page_address: VirtualPageAddress) -> Result<(), ()> {
-        if unsafe {
-            bindings::vmm_unmap_page(&self.context, virtual_page_address.inner())
-        } {
+        if unsafe { vmm_unmap_page(&self.context, virtual_page_address.inner()) } {
             Ok(())
         } else {
             Err(())
@@ -86,7 +86,7 @@ impl VirtualMemoryManagerContext {
         virtual_page_address: VirtualPageAddress,
     ) -> Result<Option<PhysicalPageFrame>, PhysicalPageFrameParseError> {
         let physical_page_frame =
-            unsafe { bindings::vmm_translate(&self.context, virtual_page_address.inner()) };
+            unsafe { vmm_translate(&self.context, virtual_page_address.inner()) };
         if physical_page_frame == 0 {
             return Ok(None);
         }

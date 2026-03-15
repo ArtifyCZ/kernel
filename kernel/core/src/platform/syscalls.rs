@@ -1,24 +1,12 @@
-use crate::platform::syscalls::bindings::syscall_frame;
 use crate::platform::tasks::TaskFrame;
 use alloc::boxed::Box;
 use core::ffi::c_void;
 
-mod bindings {
-    include_bindings!("syscalls.rs");
-}
-
-mod syscall_errs {
-    include_bindings!("syscall_errs.rs");
-}
-
-mod syscall_nums {
-    include_bindings!("syscall_nums.rs");
-}
-
 use crate::println;
-pub use bindings::syscall_args;
-pub use syscall_errs::syscall_err as SyscallError;
-pub use syscall_nums::syscall_num;
+pub use kernel_bindings_gen::syscall_args;
+use kernel_bindings_gen::{syscall_frame, syscalls_init, syscalls_raw};
+pub use syscalls_rust::syscall_err as SyscallError;
+pub use syscalls_rust::syscall_num;
 
 pub struct Syscalls;
 
@@ -144,7 +132,7 @@ impl Syscalls {
 
         println!("Initializing syscalls...");
         unsafe {
-            bindings::syscalls_init(
+            syscalls_init(
                 Some(trampoline::<F>),
                 Box::into_raw(Box::new(f)) as *mut c_void,
             );
@@ -153,6 +141,6 @@ impl Syscalls {
     }
 
     unsafe fn invoke(args: syscall_args) -> u64 {
-        unsafe { bindings::syscalls_raw(args) }
+        unsafe { syscalls_raw(args) }
     }
 }
